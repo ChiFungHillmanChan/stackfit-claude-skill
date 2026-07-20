@@ -128,7 +128,7 @@ Services split only when a boundary clears a stated condition. A boundary with n
 
 ## Worked examples
 
-Three runs deliberately spanning the range, all in [`examples/`](examples/).
+Three runs deliberately spanning the range, all in [`examples/`](examples/). The first two ship both the interactive HTML and the markdown build spec; the third is HTML only.
 
 ### It stays small when small is right
 
