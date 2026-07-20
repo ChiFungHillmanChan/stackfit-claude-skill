@@ -108,11 +108,14 @@ for (const [key, t] of Object.entries(TIERS || {})) {
   // between. Reroute via an adjacent column or move the nodes.
   for (const [a, b] of t.edges || []) {
     const s = byId[a], d = byId[b];
-    if (!s || !d || s.row !== d.row) continue;
+    if (!s || !d) continue;
     const [lo, hi] = s.col < d.col ? [s.col, d.col] : [d.col, s.col];
+    // Both straight and elbow edges run horizontally at the SOURCE row before
+    // dropping into the gutter left of the target column, so an obstacle at
+    // the source row is a crossing either way.
     const blocker = t.nodes.find(n => n.row === s.row && n.col > lo && n.col < hi);
     if (blocker)
-      fail.push(`${key}: edge ${a}->${b} draws through "${blocker.id}" — same-row edges cannot skip an occupied column`);
+      fail.push(`${key}: edge ${a}->${b} draws through "${blocker.id}" — the router does not path around obstacles; move the nodes or route via an adjacent column`);
   }
 
   // Orphans
@@ -134,20 +137,56 @@ for (const [key, t] of Object.entries(TIERS || {})) {
   // Tier metadata
   if (!t.trigger) fail.push(`${key}: no trigger metric — tier is incomplete`);
   if (!t.scaledown) fail.push(`${key}: no scale-down path`);
-  if (t.trigger && !/\d/.test(t.trigger) && key !== "scale")
+  // The final tier has nothing above it to move up to, so a numeric trigger
+  // is not meaningful there. Exempt by position, not by name — tier names
+  // vary with system class.
+  const isLastTier = key === Object.keys(TIERS)[Object.keys(TIERS).length - 1];
+  if (t.trigger && !/\d/.test(t.trigger) && !isLastTier)
     warn.push(`${key}: trigger metric has no number in it`);
 }
 
 /* ---- 4. Budget gate ------------------------------------------------------ */
 
+// The first tier is what gets built now, whatever it is named. Class S ships
+// two tiers, M and L ship three, so this cannot key off "mvp".
+const tierKeys = Object.keys(TIERS || {});
+const firstTier = TIERS?.[tierKeys[0]];
 const budgetRow = (SYSTEM?.profile || []).find(r => /budget/i.test(r[0]));
-if (budgetRow && TIERS?.mvp) {
+if (budgetRow && firstTier) {
   const ceiling = parseInt(String(budgetRow[1]).replace(/[^\d]/g, ""), 10);
-  if (ceiling && TIERS.mvp.cost > ceiling)
-    fail.push(`MVP tier costs $${TIERS.mvp.cost} but budget ceiling is $${ceiling} — Gate 3 violated`);
+  if (ceiling && firstTier.cost > ceiling)
+    fail.push(`first tier "${tierKeys[0]}" costs $${firstTier.cost} but budget ceiling is $${ceiling} — Gate 4 violated`);
 }
 
-/* ---- 5. Assumptions surfaced -------------------------------------------- */
+if (tierKeys.length < 2)
+  fail.push(`only ${tierKeys.length} tier(s) — a design needs at least what you build now and what you grow into`);
+if (tierKeys.length > 4)
+  warn.push(`${tierKeys.length} tiers is a lot; 2 for Class S, 3 for M and L`);
+
+/* ---- 5. Reasoning layer present ------------------------------------------ */
+
+// Phase 4a exists to stop the design jumping straight to a datastore. If no
+// access patterns were recorded, that reasoning did not happen.
+if (!SYSTEM?.patterns?.length)
+  fail.push("no access patterns recorded — Phase 4a was skipped, so the datastore choice is undefended");
+
+// Phase 4c: infrastructure is not the whole design.
+if (!SYSTEM?.stack?.length)
+  fail.push("no stack decision recorded — Phase 4c was skipped (language, framework, topology, repo shape)");
+else {
+  const layers = SYSTEM.stack.map(s => String(s[0]).toLowerCase());
+  for (const need of ["language", "topology", "repo"])
+    if (!layers.some(l => l.includes(need)))
+      warn.push(`stack section has no "${need}" row`);
+}
+
+// Gate 3: the reflex stack must be named and judged, either way.
+if (!SYSTEM?.verdict)
+  fail.push("no reflex-stack verdict — Gate 3 requires naming the default and judging it out loud");
+else if (!/verdict/i.test(SYSTEM.verdict))
+  warn.push("verdict block has no explicit Verdict line");
+
+/* ---- 6. Assumptions surfaced -------------------------------------------- */
 
 if (SYSTEM?.profile && !SYSTEM.profile.some(r => r[2]))
   warn.push("no profile field marked [assumed] — verify nothing was silently asserted");

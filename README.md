@@ -6,7 +6,7 @@ A skill that interviews you about what you are actually building, challenges the
 
 Two files come out the other end:
 
-- **`<system>-design.html`** — self-contained interactive page. Three scale tiers you can tab between, clickable components, cost breakdown per tier, and an ordered start-here checklist.
+- **`<system>-design.html`** — self-contained interactive page. Scale tiers you can tab between (two for a small system, three for a growing one), clickable components, access patterns, stack decisions, cost breakdown per tier, and an ordered start-here checklist.
 - **`<system>-design.md`** — build spec written as constraints, precise enough that a coding agent starts implementing without asking follow-up questions.
 
 ## Why
@@ -15,7 +15,9 @@ Engineers reach for the same stack regardless of requirements. Vercel plus Supab
 
 This skill inverts the order: requirements first, components second, and every component has to justify itself against a number.
 
-It is not anti-default. For plenty of systems the popular stack is genuinely correct, and the skill will say so plainly, with the reasoning shown. What it forbids is arriving there without checking.
+**It is not anti-default, and it is not pro-complexity.** For plenty of systems the popular stack is genuinely correct, and the skill says so plainly with the reasoning shown. Adding a queue, a cache, a CDN and a read replica to a tool serving 200 people is the same unexamined reflex as forcing serverless onto a write-heavy pipeline — just wearing better clothes. Both are failures, and the skill guards both directions.
+
+The two worked examples in `examples/` are deliberately at opposite ends: one concludes "$20/mo, five components, stop here"; the other rejects the default stack outright.
 
 ## Install
 
@@ -67,18 +69,46 @@ You correct what is wrong. Silence means accepted. This exists because almost no
 
 | Phase | What happens |
 |---|---|
-| 0. Repo scan | Reads `package.json`, migrations, Dockerfiles, IaC. A repo with 40 Postgres migrations does not get a DynamoDB proposal. |
-| 1. Scope | Three unskippable questions. |
-| 2. Profile | Drafts every remaining requirement with visible arithmetic. You correct by exception. |
+| 0. Repo scan | Reads `package.json`, migrations, Dockerfiles, workspace config. A repo with 40 Postgres migrations does not get a DynamoDB proposal. |
+| 1. Scope | Narrows large systems to one subsystem, then three unskippable questions, then functional requirements. |
+| 2. Profile | Classifies the system (S/M/L) and drafts every requirement with visible arithmetic. You correct by exception. |
 | 3. Research | 3-6 parallel web searches for current pricing and service limits. Patterns come from built-in knowledge; it does not search for what a load balancer is. |
-| 4. Gates | Three mandatory checks before anything is drawn. |
-| 5. Emit | Writes both files, then validates them. |
+| 4. Design | Access patterns → data layer → API → application stack → topology and tiers. In that order, because each constrains the next. |
+| 5. Gates | Four mandatory checks before anything is drawn. |
+| 6. Emit | Writes both files, then validates them. |
 
-### The three gates
+### Large systems get narrowed, not attempted
 
-**Gate 1 — every component cites a requirement.** A service enters the design only when attached to a specific profile line. "Good practice" is not a citation. Anything that cannot cite a line gets deleted.
+Asked to "design YouTube", the skill refuses to design YouTube. Upload-and-transcode is write-heavy with long-running jobs; watch-and-delivery is read-heavy and CDN-dominated; creator analytics is columnar and tolerates eventual consistency. Averaging those produces a diagram that fits none of them.
 
-**Gate 2 — the lazy default gets named and judged out loud.** The skill writes down the reflex answer for your system class, then evaluates it against your numbers in the open:
+It presents the subsystems, you pick one, and the rest become named external dependencies with defined interfaces.
+
+### Access patterns choose the database
+
+The skill never asks "SQL or NoSQL" — that question has no answer. It writes down how the data is actually read and written first, and the store follows:
+
+```
+Primary read:   class schedule for a date range, joined to
+                instructor and room  -- 8/s, the join IS the query
+Primary write:  create booking + decrement capacity
+                -- 2/s, must be one transaction
+```
+
+That is what picks Postgres, and it is recorded in the output so the choice stays defensible later.
+
+### It decides the application layer too
+
+Language, framework, runtime topology, and repo shape — not just infrastructure. Including the distinction most discussions blur: **monorepo versus polyrepo is code organization; monolith versus services is runtime topology.** They are independent axes. A monorepo running several services is a common and often correct combination.
+
+Services get split only when a boundary clears a stated condition — different scaling shape, different runtime requirement, different availability requirement, hard team boundary, or a genuinely different language. A boundary with no condition does not ship.
+
+### The four gates
+
+**Gate 1 — right-size.** What is the least infrastructure meeting every profile line? Start there. A Class S system is expected to produce a small design, and concluding "$0/mo, one repo, here's what breaks first" is a complete success.
+
+**Gate 2 — every component cites a requirement.** A service enters the design only when attached to a specific profile line. "Good practice" is not a citation. Anything that cannot cite a line gets deleted.
+
+**Gate 3 — the lazy default gets named and judged out loud.** The skill writes down the reflex answer for your system class, then evaluates it against your numbers in the open:
 
 ```
 Reflex stack: Vercel + Supabase
@@ -87,15 +117,15 @@ Breaks:    Nothing at this scale.
 Verdict:   Correct choice. Revisit at ~5k write TPS.
 ```
 
-That verdict is a success, not a failure. The reasoning is the deliverable.
+That verdict is a success, not a failure. The reasoning is the deliverable, not the conclusion. Reflexively rejecting popular stacks would just be a different reflex.
 
-**Gate 3 — budget is a hard constraint.** If the MVP tier exceeds your stated ceiling, the design is wrong and gets revised before emitting. If the requirements genuinely cannot be met within budget, it says so and quantifies the gap rather than quietly shipping something you cannot afford.
+**Gate 4 — budget is a hard constraint.** If the first tier exceeds your stated ceiling, the design is wrong and gets revised before emitting. If the requirements genuinely cannot be met within budget, it says so and quantifies the gap rather than quietly shipping something you cannot afford.
 
 ## Output Detail
 
 The HTML is fully self-contained — inline SVG, inline CSS, inline JS, zero network requests. It opens from `file://` on a plane.
 
-Each of the three tiers carries:
+Each tier carries:
 
 - Its own topology, itemized cost, and total
 - A **trigger metric** — the observable signal that says move up. "Go to Growth when DB CPU sustains above 60% or p99 crosses 300ms." Not "when you get bigger."
@@ -114,15 +144,40 @@ Catches what a visual check misses: cost tables that do not sum to their headlin
 
 The skill runs this automatically before reporting done.
 
-## Worked Example
+## Worked Examples
 
-`examples/` holds a full run for a refrigeration fleet telemetry system — 12,000 sensors, food-safety compliance, $1,200/mo ceiling. Open the HTML locally to click through it.
+Two runs at opposite ends of the range, both in `examples/`. Open the HTML locally to click through them.
 
-It is worth reading for what the research phase caught. AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds generates 1.04 billion messages a month: **$1,037/mo in messaging alone, 86% of the entire budget, before any database exists.** Batching 10 readings per publish cuts that to $104.
+### Small — and it stays small
+
+`small-booking-app-design.html` — class booking for one yoga studio. 800 members, solo developer, $50/mo ceiling.
+
+The verdict:
+
+```
+Reflex stack: Vercel + Supabase + Next.js
+Fits:      2 writes/s and 8 reads/s are nowhere near any limit.
+           Bookings are relational. Solo dev has zero ops capacity.
+           Capacity decrement needs a real transaction.
+Breaks:    Nothing. Not at this scale, and not at 10x this scale.
+Verdict:   CORRECT. This is the right answer and the design stops
+           here. No queue, no cache, no CDN beyond what Vercel
+           already does, no read replica, no container platform.
+```
+
+Five components, $20/mo, two tiers instead of three. The research phase still earned its place: Vercel's Hobby plan forbids commercial use, and a studio taking payments is commercial — so Pro at $20 is required, not optional. Cloudflare Pages permits commercial use free if that $20 matters.
+
+The output is short because the system is small. That is the correct result, not an omission.
+
+### Large — and the default loses
+
+`refrigeration-telemetry-design.html` — 12,000 sensors, food-safety compliance, $1,200/mo ceiling.
+
+Here the research phase caught the decisive number. AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds generates 1.04 billion messages a month: **$1,037/mo in messaging alone, 86% of the entire budget, before any database exists.** Batching 10 readings per publish cuts that to $104.
 
 A default design never surfaces that number, because a default design never computes it.
 
-The same run rejected the reflex stack for the ingest plane, with reasons:
+This run rejected the reflex stack, with reasons:
 
 ```
 Reflex stack: Vercel + Supabase
@@ -140,23 +195,31 @@ Verdict:   Rejected for ingest. The read plane is one container
 
 It also declined to add Redis at MVP — a 12,000-row current-state table serves dashboard reads fine, so a cache would buy an invalidation bug surface for no measured gain. Redis enters at Growth, when per-reading updates start contending with the ingest path.
 
+Its stack section splits three deployables out of one monorepo, because ingest scales on message rate, the alert evaluator on rule count, and the web tier on staff concurrency — three genuinely different scaling shapes. The yoga studio gets one deployable, because nothing there differs.
+
 ## Repo Layout
 
 ```
-SKILL.md                         the skill itself
+SKILL.md                       the skill itself — procedure
 references/
-  service-catalog.md             candidate services, ceilings, cost anchors
-  html-template.html             interactive diagram scaffold
-  spec-template.md               build spec structure
-  validate.js                    output validator
+  design-principles.md         the reasoning layer: access patterns, read/write
+                               scaling, caching costs, queues, partitioning,
+                               consistency, right-sizing, narrowing big systems
+  stack-selection.md           language, framework, topology, repo shape
+  service-catalog.md           candidate services, ceilings, cost anchors
+  html-template.html           interactive diagram scaffold
+  spec-template.md             build spec structure
+  validate.js                  output validator
 examples/
-  refrigeration-telemetry-design.html    worked example, interactive
-  refrigeration-telemetry-design.md      worked example, build spec
+  small-booking-app-design.{html,md}          Class S — stays small
+  refrigeration-telemetry-design.{html,md}    Class L — default rejected
 ```
 
 ## Customizing
 
-Most tuning happens in `references/service-catalog.md` — it holds the selection criteria, ceilings, and cost anchors. If your team standardizes on a cloud or has services it will not adopt, encode that there and the skill will respect it.
+Most tuning happens in two files. `references/service-catalog.md` holds selection criteria, ceilings, and cost anchors — if your team standardizes on a cloud or has services it will not adopt, encode that there. `references/stack-selection.md` holds language, framework, and repo-shape guidance; if your shop is Python-only or has a standing view on services, put it there.
+
+`references/design-principles.md` is the reasoning layer and is worth reading on its own even if you never run the skill.
 
 To change the diagram's look, edit the CSS variables at the top of `references/html-template.html`. The renderer is data-driven, so nothing below the `END DATA` marker needs touching.
 

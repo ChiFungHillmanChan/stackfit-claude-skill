@@ -127,6 +127,17 @@
   }
   ol.check li:last-child { border-bottom: 0; }
 
+  .lede { color: var(--muted); font-size: 13.5px; margin: -6px 0 12px; max-width: 70ch; }
+  .card .why { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .verdict { background: var(--panel); border: 1px solid var(--line);
+             border-left: 3px solid var(--ok); border-radius: 9px;
+             padding: 14px 16px; margin-top: 14px; }
+  .verdict.rejected { border-left-color: var(--queue); }
+  .verdict h4 { margin: 0 0 7px; font-size: 12px; text-transform: uppercase;
+                letter-spacing: .07em; color: var(--muted); }
+  .verdict pre { margin: 0; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+                 white-space: pre-wrap; }
+
   footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line);
            color: var(--muted); font-size: 12.5px; }
 </style>
@@ -144,13 +155,19 @@
   <tbody id="profile"></tbody>
 </table>
 
+<h2>Access patterns</h2>
+<p class="lede">How the data is read and written. This is what chose the datastore — not a preference for SQL or NoSQL.</p>
+<table class="profile">
+  <tbody id="patterns"></tbody>
+</table>
+
+<h2>Stack</h2>
+<div class="meta" id="stack"></div>
+<div class="verdict" id="verdict"></div>
+
 <h2>Architecture</h2>
 <div class="tierbar">
-  <div class="tabs" role="tablist" aria-label="Scale tier">
-    <button class="tab" role="tab" data-tier="mvp"    aria-selected="true">MVP</button>
-    <button class="tab" role="tab" data-tier="growth" aria-selected="false">Growth</button>
-    <button class="tab" role="tab" data-tier="scale"  aria-selected="false">Scale</button>
-  </div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Scale tier"></div>
   <div class="cost"><span id="costctx"></span> <strong id="costnum"></strong> <span>/mo</span></div>
 </div>
 
@@ -202,6 +219,30 @@ const SYSTEM = {
     ["Compliance",     "Food-safety audit records; no PII beyond staff email", null],
     ["Team size",      "3",               "small team, ops burden matters"]
   ],
+  patterns: [
+    ["Primary write",  "Append one reading per unit, never updated",     "400/s, strictly time-ordered"],
+    ["Primary read",   "Latest state for every unit in a tenant",        "25/s, ~12,000 rows, no history"],
+    ["Secondary read", "One unit's readings over a time range",          "unit detail chart and audit export"],
+    ["Analytics",      "Excursion counts per tenant per month",          "offline, no latency budget"]
+  ],
+  stack: [
+    ["Language",  "Python 3.12",     "Team of 3 works in Python already. At 40 batched COPY calls/s the throughput ceiling is nowhere near binding, so language speed is not a deciding factor here."],
+    ["Framework", "Django 5",        "Tenants, sites, units and alert rules all need CRUD screens. Django admin delivers those in hours rather than weeks, which outweighs any framework preference."],
+    ["Topology",  "3 deployables from one monorepo", "Ingest scales on message rate, the evaluator on rule count x unit count, the web tier on staff concurrency. Three genuinely different scaling shapes, so they cannot share a deployment unit sensibly."],
+    ["Repo",      "Monorepo",        "One team, one release cadence, shared schema models. Services and monorepo are independent axes — running three deployables does not require three repositories."]
+  ],
+  verdict: `Reflex stack: Vercel + Supabase
+
+Fits:      Dashboard for 600 staff is trivial. Postgres suits the
+           relational half — sites, units, alert rules.
+Breaks:    400 writes/s sustained, 12.6B rows/yr. No columnar
+           compression means 820GB/yr and punitive storage cost.
+           Devices speak MQTT over cellular; there is no MQTT ingress.
+           Serverless has nowhere to hold the disk buffer that the
+           no-data-loss requirement demands.
+Verdict:   Rejected for the ingest plane. The read plane is one
+           container alongside the evaluator, so adding Vercel would
+           introduce a second deploy target for no gain.`,
   checklist: [
     "Flash device firmware to batch 10 readings per MQTT publish on a 5-minute interval. This single change is the difference between $104/mo and $1,037/mo in IoT Core messaging — do it before onboarding any fleet.",
     "Create the AWS IoT Core thing type and policy. Register each unit by serial with its own certificate; never share a credential across the fleet.",
@@ -600,7 +641,32 @@ el("profile").innerHTML = SYSTEM.profile.map(([k, v, a]) =>
   `<tr><td>${esc(k)}</td><td>${esc(v)}</td>
    <td class="assumed">${a ? "[assumed: " + esc(a) + "]" : ""}</td></tr>`).join("");
 
+el("patterns").innerHTML = (SYSTEM.patterns || []).map(([k, v, a]) =>
+  `<tr><td>${esc(k)}</td><td>${esc(v)}</td><td>${esc(a || "")}</td></tr>`).join("");
+
+el("stack").innerHTML = (SYSTEM.stack || []).map(([layer, choice, why]) =>
+  `<div class="card"><h4>${esc(layer)}</h4><p>${esc(choice)}</p>
+   <p class="why">${esc(why)}</p></div>`).join("");
+
+// Gate 3 output: the reflex stack, named and judged. Rendered verbatim so the
+// reasoning travels with the diagram rather than living only in chat.
+if (SYSTEM.verdict) {
+  const rejected = /^\s*rejected/im.test(SYSTEM.verdict);
+  el("verdict").className = "verdict" + (rejected ? " rejected" : "");
+  el("verdict").innerHTML =
+    `<h4>The reflex stack, judged</h4><pre>${esc(SYSTEM.verdict.trim())}</pre>`;
+} else {
+  el("verdict").remove();
+}
+
 el("checklist").innerHTML = SYSTEM.checklist.map(c => `<li>${esc(c)}</li>`).join("");
+
+// Tabs are built from whatever tiers exist. A Class S system ships 2 tiers;
+// M and L ship 3. Hardcoding three would imply complexity a small system
+// does not have.
+el("tabs").innerHTML = Object.entries(TIERS).map(([key, t], i) =>
+  `<button class="tab" role="tab" data-tier="${esc(key)}"
+     aria-selected="${i === 0}">${esc(t.label)}</button>`).join("");
 
 document.title = SYSTEM.name + " — Architecture";
 document.querySelector("h1").textContent = SYSTEM.name;
@@ -619,7 +685,7 @@ document.querySelectorAll(".tab").forEach(btn => {
   });
 });
 
-renderTier("mvp");
+renderTier(Object.keys(TIERS)[0]);
 </script>
 </body>
 </html>

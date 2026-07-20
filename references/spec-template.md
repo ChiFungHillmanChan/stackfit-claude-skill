@@ -26,7 +26,32 @@
 | Compliance | | |
 | Team size | | |
 
-## Stack
+## Access Patterns
+
+Written before any datastore was named. "SQL or NoSQL" has no answer without these.
+
+| Pattern | Query | Rate / shape |
+|---|---|---|
+| Primary read | | |
+| Primary write | | |
+| Secondary read | | |
+| Analytics | | |
+
+Datastore chosen: <name> — because <which pattern forced it>.
+
+## Application Stack
+
+| Layer | Choice | Justified by |
+|---|---|---|
+| Language | | |
+| Framework | | |
+| Runtime topology | monolith / modular monolith / services | |
+| Code organization | monorepo / polyrepo | |
+| Hosting | | |
+
+If services: name the condition each boundary clears (different scaling shape, different runtime requirement, different availability requirement, hard team boundary, or different language required). A boundary with no condition does not ship.
+
+## Infrastructure
 
 Exact versions and instance classes. Not families.
 

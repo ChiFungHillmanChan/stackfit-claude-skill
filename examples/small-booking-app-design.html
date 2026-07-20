@@ -3,23 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SYSTEM_NAME — Architecture</title>
-<!--
-  TEMPLATE INSTRUCTIONS FOR THE SKILL
-
-  Replace only the DATA block marked below, plus SYSTEM_NAME and the PROFILE rows.
-  Do not hand-write SVG. Nodes and edges are declared as data; the renderer draws them.
-
-  Node kinds map to colors: client | edge | compute | data | cache | queue | external
-  Layout is a grid: col 0..n left-to-right, row 0..n top-to-bottom. The renderer
-  computes pixel positions, so only relative placement matters.
-
-  Every node MUST have `why` (the quoted profile line that justified it) and
-  `ceiling` (what breaks first, with the symptom). A node missing either has not
-  passed Gate 1 and must not appear.
-
-  Self-contained by rule: no external requests of any kind.
--->
+<title>StudioBook — Class Booking</title>
 <style>
   :root {
     --bg: #fbfbfa;      --panel: #ffffff;   --ink: #1a1a18;
@@ -218,215 +202,163 @@
    ========================================================================= */
 
 const SYSTEM = {
-  name: "Example Feed App",
+  name: "StudioBook — Class Booking for One Yoga Studio",
   checked: "2026-07-20",
   profile: [
-    ["Write TPS",    "~40/s",   "50k DAU x 7 writes/day, 3x peak"],
-    ["Read TPS",     "~600/s",  "15:1 read/write for a feed app"],
-    ["p99 latency",  "200ms",   "interactive UI, not realtime"],
-    ["Availability", "99.9%",   "43min/mo downtime tolerable"],
-    ["Consistency",  "Strong on writes, eventual on feed", null],
-    ["Data volume",  "~80GB yr 1", "12KB/user/day"],
-    ["Budget",       "$300/mo", null],
-    ["Compliance",   "None",    "no PII beyond email"],
-    ["Team size",    "2",       "small team, ops burden matters"]
+    ["System class",   "S — Small", "800 members, 1 developer, no compliance load. Expect the managed default to win."],
+    ["Write TPS",      "~2/s peak", "343 bookings/day, 80% clustered in the Monday class-release window"],
+    ["Read TPS",       "~8/s peak", "3:1 browse-to-book on schedule pages"],
+    ["Read/write shape","Read-heavy", "members browse the schedule far more often than they book"],
+    ["p99 latency",    "400ms",     "interactive, but nobody is trading stocks"],
+    ["Availability",   "99%",       "an hour down is annoying, not costly; no revenue is lost, bookings shift"],
+    ["Consistency",    "Strong on class capacity; eventual everywhere else", null],
+    ["Data volume",    "~200MB/yr", "800 members x ~450 bookings/yr x ~600B"],
+    ["Budget",         "$50/mo",    null],
+    ["Compliance",     "Member names and emails. Card data never touches our servers.", null],
+    ["Team size",      "1",         "solo developer, nights and weekends"]
   ],
-  // Access patterns drive the datastore choice. Write these before naming
-  // any database — "SQL or NoSQL" has no answer without them.
   patterns: [
-    ["Primary read",   "Feed for one user, latest 50 posts joined to author", "600/s — relational, needs the join"],
-    ["Primary write",  "Single post insert",                                  "40/s"],
-    ["Secondary read", "One post with its comment tree",                      "90/s — nested relational"],
-    ["Analytics",      "Daily active users",                                  "1/day, offline, no latency budget"]
+    ["Primary read",   "Class schedule for a date range, joined to instructor and room", "8/s — relational, the join is the query"],
+    ["Primary write",  "Create booking and decrement remaining capacity",                "2/s — must be one transaction"],
+    ["Secondary read", "One member's upcoming bookings",                                 "point lookup by member id"],
+    ["Admin",          "Instructors manage classes, rosters, cancellations",             "CRUD, low volume"]
   ],
   stack: [
-    ["Language",  "TypeScript",       "Team of 2 already fluent; one language across client and server halves the toolchain."],
-    ["Framework", "Next.js 15",       "Public feed pages need SSR for SEO and first paint."],
-    ["Topology",  "Modular monolith", "No component has a scaling shape differing from the rest. Boundaries enforced by module, so extraction stays cheap later."],
-    ["Repo",      "Monorepo",         "One team, one release cadence. Independent of topology — this stays a monorepo even after a service is extracted."]
+    ["Language",  "TypeScript",  "Solo developer. One language across client and server means one toolchain and one set of shared types — this matters more at team size 1 than at any other size."],
+    ["Framework", "Next.js 15",  "The public schedule needs to rank for local search; people find studios by googling. That requires server rendering, which decides the framework."],
+    ["Topology",  "Monolith, one deployable", "No component has a scaling shape differing from the rest. At 2 writes/s there is nothing to separate, and separating would add deploy surface with no payer."],
+    ["Repo",      "Single repo", "One developer, one release cadence. Anything else is ceremony."]
   ],
   verdict: `Reflex stack: Vercel + Supabase + Next.js
 
-Fits:      Read TPS 600/s is comfortable on a small Postgres.
-           Team of 2 has no ops capacity to spend.
-           Relational access pattern matches Postgres exactly.
-Breaks:    Nothing at this scale.
-Verdict:   Correct choice. Revisit at ~5k write TPS, or when
-           connection pooling becomes the bottleneck.`,
+Fits:      2 writes/s and 8 reads/s are nowhere near any limit.
+           Bookings are relational — classes, instructors, rooms,
+           members — which is exactly Postgres.
+           Solo developer has zero ops capacity to spend.
+           Capacity decrement needs a real transaction, which
+           Postgres gives and a key-value store would not.
+Breaks:    Nothing. Not at this scale, and not at 10x this scale.
+Verdict:   CORRECT. This is the right answer and the design stops
+           here. No queue, no cache, no CDN beyond what Vercel
+           already does, no read replica, no container platform.
+
+           One caveat that bites people: Vercel's Hobby plan
+           forbids commercial use, and a studio taking payments is
+           commercial. Pro at $20/mo is required, not optional.
+           Cloudflare Pages permits commercial use on its free tier
+           if that $20 genuinely matters.`,
   checklist: [
-    "Create the RDS Postgres instance: db.t4g.small, 20GB gp3, single-AZ, automated backups 7 days.",
-    "Apply the schema and indexes from the build spec before writing application code.",
-    "Deploy the API container to Fly with a healthcheck on /healthz and min 1 machine.",
-    "Put Cloudflare in front with cache rules for /static/* and no caching on /api/*.",
-    "Add RDS Proxy or PgBouncer before the first traffic spike, not after.",
-    "Wire structured logging and one alert: p99 above 300ms for 5 minutes."
+    "Create the Supabase project and apply the schema. Put a CHECK constraint on remaining_spots so the database refuses to go negative even if application logic has a bug.",
+    "Write the booking as a single transaction that decrements capacity and inserts the booking together. This is the one place in the app where strong consistency is not optional.",
+    "Set up Vercel on the Pro plan. Hobby forbids commercial use and a studio taking payments is commercial.",
+    "Add Supabase connection pooling from day one. Serverless functions plus a connection-limited Postgres is the single most common way this stack falls over, and it costs nothing to configure up front.",
+    "Integrate Stripe Checkout in hosted mode. Card data must never reach your servers — that is what keeps PCI scope near zero.",
+    "Wire Resend for booking confirmations. Free tier covers 3,000 emails a month; you need roughly 350.",
+    "Add one alert: Supabase database size above 400MB. That is the trigger for the next tier and the only number worth watching."
   ]
 };
 
-/* Node kinds: client | edge | compute | data | cache | queue | external
-   Grid placement: col (left to right), row (top to bottom).
-   `why` and `ceiling` are mandatory on every node. */
-
 const TIERS = {
-  mvp: {
-    label: "MVP",
-    context: "up to ~5k users",
-    cost: 71,
-    trigger: "Move to Growth when DB CPU sustains above 60% for an hour, or p99 crosses 300ms, or connections approach the pooler limit.",
-    scaledown: "Drop to a single Fly machine and db.t4g.micro during low season: about $28/mo. Postgres can absorb reads at this volume without Redis.",
+  now: {
+    label: "Now",
+    context: "800 members",
+    cost: 20,
+    trigger: "Move up when the Supabase database passes 400MB, or free-tier bandwidth runs out, or concurrent connections approach the pooler limit. On these numbers that is roughly three years away.",
+    scaledown: "Already at the floor. The only thing below $20/mo is moving off Vercel to Cloudflare Pages, whose free tier permits commercial use — that reaches $0/mo at the cost of some Next.js feature parity.",
     costrows: [
-      ["Fly.io container", "shared-cpu-1x, 512MB, 2 machines", 11],
-      ["RDS Postgres",     "db.t4g.small, 20GB gp3",           29],
-      ["Cloudflare",       "Free plan",                         0],
-      ["Backups + egress", "estimated",                        31]
+      ["Vercel",   "Pro plan (Hobby forbids commercial use)", 20],
+      ["Supabase", "Free tier, 500MB Postgres",                0],
+      ["Stripe",   "per-transaction, no monthly fee",          0],
+      ["Resend",   "Free tier, 3k emails/mo",                  0]
     ],
     nodes: [
-      { id:"client", kind:"client",  col:0, row:1, label:"Client",     sub:"Web + mobile",
-        why:"50k DAU across web and mobile",
-        size:"n/a",
+      { id:"members", kind:"client", col:0, row:1, label:"Members + staff", sub:"800 members, 12 staff",
+        why:"800 members browsing and booking, 12 staff administering",
+        size:"Browser, mobile web",
         cost:"$0",
         ceiling:"n/a",
-        rejected:"n/a" },
-      { id:"cdn",    kind:"edge",    col:1, row:1, label:"Cloudflare", sub:"CDN + TLS",
-        why:"p99 200ms target with users in 3 regions",
-        size:"Free plan",
+        rejected:"A native app — a mobile web page books a yoga class perfectly well and costs nothing to distribute." },
+      { id:"app", kind:"compute", col:1, row:1, label:"Next.js on Vercel", sub:"Monolith, SSR",
+        why:"Read TPS 8/s with public schedule pages that must rank in local search",
+        size:"Vercel Pro, serverless functions",
+        cost:"$20/mo",
+        ceiling:"Serverless is the right shape here precisely because traffic is spiky and low — Monday morning bursts, near-idle otherwise. It becomes wrong above roughly 20-40% sustained utilization, which this will never reach.",
+        rejected:"A container on Fly at $5/mo — cheaper, but it gives up preview deploys and zero-config SSR for a saving that does not matter at this budget. Cloudflare Pages at $0 — viable, and the right call if the $20 is genuinely painful." },
+      { id:"stripe", kind:"external", col:2, row:0, label:"Stripe Checkout", sub:"Hosted payment",
+        why:"Compliance: card data must never touch our servers",
+        size:"Hosted checkout, per-transaction pricing",
+        cost:"~2.9% + 30c per booking",
+        ceiling:"Hosted checkout keeps PCI scope minimal. Building a custom card form would expand it enormously for a cosmetic gain.",
+        rejected:"Storing cards directly — this is never the right call for a solo developer, and rarely for anyone else." },
+      { id:"db", kind:"data", col:2, row:1, label:"Supabase Postgres", sub:"Free tier, 500MB",
+        why:"Relational access pattern plus strong consistency on capacity decrement",
+        size:"Free tier, 500MB, shared compute",
         cost:"$0/mo",
-        ceiling:"Free plan is generous; paid at ~$20/mo adds WAF rules and analytics.",
-        rejected:"CloudFront — comparable, but adds AWS billing complexity with no gain at this size." },
-      { id:"api",    kind:"compute", col:2, row:1, label:"API",        sub:"Fly, 2 machines",
-        why:"Write TPS 40/s sustained — steady traffic favors containers over serverless",
-        size:"shared-cpu-1x, 512MB, 2 machines",
-        cost:"$11/mo",
-        ceiling:"~400 req/s per machine before p99 degrades. Scale horizontally first.",
-        rejected:"Lambda — at 40/s sustained, per-invocation pricing runs roughly 4x an always-on container." },
-      { id:"db",     kind:"data",    col:3, row:1, label:"Postgres",   sub:"RDS t4g.small",
-        why:"Relational access with joins and transactions; strong consistency on writes",
-        size:"db.t4g.small, 2vCPU/2GB, 20GB gp3",
-        cost:"$29/mo",
-        ceiling:"~800 write TPS and ~60 connections before you need a pooler and a read replica.",
-        rejected:"DynamoDB — access patterns are still changing; ad-hoc queries would force a migration later." }
+        ceiling:"500MB and ~60 connections. At 200MB/yr the storage limit is roughly three years out; the connection cap is what actually binds first, which is why pooling goes in on day one.",
+        rejected:"DynamoDB — the booking transaction spans classes and bookings and needs to be atomic, which is exactly where a key-value store makes you build your own machinery. Planetscale/Neon — equivalent, but Supabase bundles auth, which removes a whole component for a solo developer." },
+      { id:"email", kind:"external", col:2, row:2, label:"Resend", sub:"Transactional email",
+        why:"Booking confirmations and cancellation notices",
+        size:"Free tier, 3,000 emails/mo",
+        cost:"$0/mo",
+        ceiling:"3,000/mo free. At ~350/mo you have a decade of headroom.",
+        rejected:"SES — cheaper at volume, meaningfully more setup, and there is no volume here to be cheaper about." }
     ],
     edges: [
-      ["client","cdn","HTTPS"],
-      ["cdn","api","origin"],
-      ["api","db","SQL"]
+      ["members","app","HTTPS"],
+      ["app","stripe","checkout"],
+      ["app","db","SQL"],
+      ["app","email","confirm"]
     ]
   },
 
-  growth: {
-    label: "Growth",
-    context: "~5k to 80k users",
-    cost: 224,
-    trigger: "Move to Scale when write TPS passes 500/s, or the read replica saturates, or a single region no longer meets the p99 target.",
-    scaledown: "Redis and the read replica are the first things to cut when traffic falls: removing both saves about $95/mo and returns you to the MVP shape.",
+  next: {
+    label: "When you outgrow it",
+    context: "~5,000 members",
+    cost: 45,
+    trigger: "Nothing here needs building until the trigger fires. This tier is documented, not built.",
+    scaledown: "Reverting is a plan change, not a migration — drop Supabase back to Free and you are at the previous tier.",
     costrows: [
-      ["Fly.io containers", "shared-cpu-2x, 1GB, 3 machines",  62],
-      ["RDS Postgres",      "db.t4g.medium, 100GB gp3",        62],
-      ["RDS read replica",  "db.t4g.medium",                   62],
-      ["Redis",             "Upstash, 1GB",                    18],
-      ["Cloudflare",        "Pro",                             20]
+      ["Vercel",   "Pro plan",                        20],
+      ["Supabase", "Pro, 8GB Postgres, dedicated",    25],
+      ["Stripe",   "per-transaction",                  0],
+      ["Resend",   "Free tier still sufficient",       0]
     ],
     nodes: [
-      { id:"client", kind:"client",  col:0, row:1, label:"Client",   sub:"Web + mobile",
-        why:"50k DAU across web and mobile", size:"n/a", cost:"$0",
+      { id:"members", kind:"client", col:0, row:1, label:"Members + staff", sub:"~5,000 members",
+        why:"6x the member base",
+        size:"Browser, mobile web", cost:"$0",
         ceiling:"n/a", rejected:"n/a" },
-      { id:"cdn",    kind:"edge",    col:1, row:1, label:"Cloudflare", sub:"CDN + WAF",
-        why:"p99 200ms with 3 regions; WAF needed once the surface is public",
-        size:"Pro plan", cost:"$20/mo",
-        ceiling:"Enterprise needed only for custom SLAs.",
-        rejected:"CloudFront — no advantage here." },
-      { id:"api",    kind:"compute", col:2, row:1, label:"API",      sub:"Fly, 3 machines",
-        why:"Read TPS 600/s needs horizontal headroom",
-        size:"shared-cpu-2x, 1GB, 3 machines", cost:"$62/mo",
-        ceiling:"~1200 req/s aggregate. Beyond that, split read and write paths.",
-        rejected:"ECS Fargate — roughly 2x cost for equivalent capacity at this size." },
-      { id:"cache",  kind:"cache",   col:2, row:2, label:"Redis",    sub:"Upstash 1GB",
-        why:"Read TPS 600/s exceeds what t4g.medium Postgres serves uncached",
-        size:"1GB, pay-per-request", cost:"$18/mo",
-        ceiling:"Memory-bound. Watch eviction rate; 1GB holds roughly a 200k-item hot set.",
-        rejected:"In-process cache — 3 machines would each hold a divergent copy with no invalidation path." },
-      { id:"db",     kind:"data",    col:3, row:1, label:"Postgres", sub:"Primary",
-        why:"Strong consistency on writes",
-        size:"db.t4g.medium, 2vCPU/4GB, 100GB gp3", cost:"$62/mo",
-        ceiling:"~3k write TPS before sharding becomes the conversation.",
-        rejected:"Aurora — fixed cost is not justified until past this tier." },
-      { id:"replica",kind:"data",    col:3, row:2, label:"Replica",  sub:"Read-only",
-        why:"99.9% availability needs failover; also absorbs feed reads",
-        size:"db.t4g.medium", cost:"$62/mo",
-        ceiling:"Replication lag rises with write volume. Feed reads tolerate it; auth reads must not use it.",
-        rejected:"Larger single instance — no failover story, so it fails the availability line." }
-    ],
-    edges: [
-      ["client","cdn","HTTPS"],
-      ["cdn","api","origin"],
-      ["api","cache","get/set"],
-      ["api","db","writes"],
-      ["api","replica","reads"],
-      ["db","replica","stream"]
-    ]
-  },
-
-  scale: {
-    label: "Scale",
-    context: "80k+ users",
-    cost: 780,
-    trigger: "Past this tier the design depends on which dimension actually broke. Re-run the interview with measured numbers rather than extending this diagram.",
-    scaledown: "Workers and the queue scale to zero between bursts. Off-peak the cluster drops to about $430/mo without touching the topology.",
-    costrows: [
-      ["ECS Fargate",       "4 tasks, 1vCPU/2GB",     240],
-      ["RDS Postgres",      "db.m6g.large, multi-AZ", 260],
-      ["RDS read replica",  "db.m6g.large",           130],
-      ["Redis",             "ElastiCache, HA",         95],
-      ["SQS + workers",     "burst-scaled",            35],
-      ["Cloudflare",        "Pro",                     20]
-    ],
-    nodes: [
-      { id:"client", kind:"client",  col:0, row:1, label:"Client",   sub:"Web + mobile",
-        why:"50k DAU across web and mobile", size:"n/a", cost:"$0",
-        ceiling:"n/a", rejected:"n/a" },
-      { id:"cdn",    kind:"edge",    col:1, row:1, label:"Cloudflare", sub:"CDN + WAF",
-        why:"p99 200ms with 3 regions", size:"Pro plan", cost:"$20/mo",
-        ceiling:"Enterprise only for custom SLAs.", rejected:"n/a" },
-      { id:"api",    kind:"compute", col:2, row:1, label:"API",      sub:"ECS, 4 tasks",
-        why:"Sustained volume past what single-region PaaS handles predictably",
-        size:"Fargate 1vCPU/2GB x4", cost:"$240/mo",
-        ceiling:"Task-level autoscaling. Move to EC2 backing if sustained cost matters more than ops time.",
-        rejected:"Fly — fine technically, but ECS matches the rest of the AWS footprint at this tier." },
-      { id:"queue",  kind:"queue",   col:2, row:0, label:"SQS",      sub:"Write buffer",
-        why:"Write TPS 500/s+ with bursty traffic; smooths spikes off the write path",
-        size:"Standard queue", cost:"~$5/mo",
-        ceiling:"Standard queues do not preserve global ordering. Use FIFO only if ordering is required.",
-        rejected:"Kinesis — replay and multi-consumer are not needed; per-shard cost is not justified." },
-      { id:"worker", kind:"compute", col:3, row:0, label:"Workers",  sub:"Async consumers",
-        why:"Decouples write durability from request latency to hold p99 200ms",
-        size:"Fargate 0.5vCPU/1GB, burst", cost:"$30/mo",
-        ceiling:"Scales with queue depth. Alert on depth, not on worker count.",
-        rejected:"In-process background jobs — they die with the request and break the durability line." },
-      { id:"cache",  kind:"cache",   col:2, row:2, label:"Redis",    sub:"ElastiCache HA",
-        why:"Read TPS well past uncached DB capacity; also holds sessions and rate limits",
-        size:"cache.t4g.medium, 2 nodes", cost:"$95/mo",
-        ceiling:"Failover takes seconds. The app must tolerate a cold cache without stampeding.",
-        rejected:"Upstash — HA and VPC-local latency favor ElastiCache once inside AWS." },
-      { id:"db",     kind:"data",    col:4, row:1, label:"Postgres", sub:"Primary, multi-AZ",
-        why:"Strong consistency on writes; multi-AZ for the availability target",
-        size:"db.m6g.large, 2vCPU/8GB, multi-AZ", cost:"$260/mo",
-        ceiling:"Single writer. Past ~5k write TPS the next step is partitioning by tenant.",
-        rejected:"Aurora — worth reconsidering here; chosen against only to avoid a migration mid-growth." },
-      { id:"replica",kind:"data",    col:4, row:2, label:"Replica",  sub:"Read-only",
-        why:"Absorbs feed reads; failover target",
-        size:"db.m6g.large", cost:"$130/mo",
-        ceiling:"Add a second replica when read CPU passes 60%.",
+      { id:"app", kind:"compute", col:1, row:1, label:"Next.js on Vercel", sub:"Unchanged",
+        why:"Read TPS ~50/s — still comfortably inside serverless economics",
+        size:"Vercel Pro, unchanged", cost:"$20/mo",
+        ceiling:"Same shape as before. Traffic is still spiky and still low.",
+        rejected:"Rearchitecting — nothing in the profile has changed shape, only magnitude." },
+      { id:"stripe", kind:"external", col:2, row:0, label:"Stripe Checkout", sub:"Hosted payment",
+        why:"Compliance: card data must never touch our servers",
+        size:"Hosted checkout", cost:"per-transaction",
+        ceiling:"Unchanged.", rejected:"n/a" },
+      { id:"pool", kind:"compute", col:2, row:1, label:"Connection pooler", sub:"Supavisor",
+        why:"Serverless function concurrency against a connection-limited Postgres — the classic failure mode of this exact stack",
+        size:"Supabase Supavisor, transaction mode", cost:"included",
+        ceiling:"Transaction-mode pooling disallows session-level features like prepared statements and LISTEN/NOTIFY. Check your ORM before switching.",
+        rejected:"Raising the connection cap — treats the symptom. Serverless concurrency is unbounded by design, so pooling is the actual answer." },
+      { id:"db", kind:"data", col:3, row:1, label:"Supabase Postgres", sub:"Pro, 8GB",
+        why:"Storage past the 500MB free-tier cap, plus dedicated compute",
+        size:"Pro plan, 8GB, dedicated compute", cost:"$25/mo",
+        ceiling:"8GB and far higher connection limits. On 200MB/yr growth this lasts effectively forever.",
+        rejected:"Self-hosting Postgres to save $25 — a solo developer's time is worth more than $25/mo." },
+      { id:"email", kind:"external", col:2, row:2, label:"Resend", sub:"Transactional email",
+        why:"Booking confirmations and cancellation notices",
+        size:"Free tier, 3,000 emails/mo", cost:"$0/mo",
+        ceiling:"~2,200/mo at this size, still inside the free tier.",
         rejected:"n/a" }
     ],
     edges: [
-      ["client","cdn","HTTPS"],
-      ["cdn","api","origin"],
-      ["api","queue","enqueue"],
-      ["queue","worker","consume"],
-      ["worker","db","writes"],
-      ["api","cache","get/set"],
-      ["api","replica","reads"],
-      ["db","replica","stream"]
+      ["members","app","HTTPS"],
+      ["app","stripe","checkout"],
+      ["app","pool","SQL"],
+      ["pool","db","pooled"],
+      ["app","email","confirm"]
     ]
   }
 };
