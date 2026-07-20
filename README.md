@@ -235,11 +235,25 @@ Most tuning happens in two files. `references/service-catalog.md` holds selectio
 
 To change the diagram's look, edit the CSS variables at the top of `references/html-template.html`. The renderer is data-driven, so nothing below the `END DATA` marker needs touching.
 
+## On The Numbers
+
+A tool that tells you to stop guessing about cost should not guess about cost. So the figures here were checked rather than recalled.
+
+Prices in `references/service-catalog.md` marked **[v]** were verified on **2026-07-20** against vendor pricing pages, cross-referenced against price-tracking sources reading the AWS Price List API where vendor pages render dynamically. Everything else is an explicit order-of-magnitude anchor.
+
+That pass found real errors in the first draft, including one 66% overstatement — ECS Fargate at four tasks was written as $240/mo when the on-demand rate gives $144. Corrected.
+
+Two things this does **not** mean:
+
+- **These are not quotes.** Region, committed-use discounts, and free-tier credits all move them. Re-verify anything that reaches a real budget.
+- **The architectural judgment is not independently reviewed.** The pricing is checked; the opinions in `design-principles.md` are reasoned but have not been through a production-experienced reviewer. Weigh them as argument, not authority.
+
 ## Caveats
 
-- Cost figures are estimates stamped with a check date. They drift. Verify before committing spend.
-- The service catalog's prices age faster than its selection criteria. Phase 3 pulls live pricing, but the catalog itself needs occasional maintenance.
+- Cost figures carry a check date. They drift, and a dated figure is only trustworthy near its date.
+- The service catalog's prices age faster than its selection criteria. Phase 3 pulls live pricing per run, but the catalog itself needs periodic maintenance.
 - This produces a design, not code. It stops at the spec deliberately.
+- The two worked examples are illustrative designs, not systems that have been built and benchmarked.
 
 ## License
 

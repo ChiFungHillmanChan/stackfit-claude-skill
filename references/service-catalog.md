@@ -2,7 +2,15 @@
 
 Starting points for component selection. Selection criteria and ceilings age slowly; **prices age fast**. Verify any price that reaches the final cost table.
 
-Prices below are order-of-magnitude anchors last reviewed 2026-07. Treat them as "is this $50 or $5000" signals, not quotes.
+Prices marked **[v]** were verified against vendor pricing pages on **2026-07-20** (us-east-1, on-demand, no commitment). Unmarked figures are order-of-magnitude anchors — treat those as "is this $50 or $5000" signals, not quotes.
+
+Compute-only figures exclude storage, data transfer, and backups unless stated. That distinction is where most cost surprises live.
+
+## Verification Method
+
+Figures marked **[v]** were checked on 2026-07-20 against vendor pricing pages, cross-referenced against price-tracking sources that read the AWS Price List API where the vendor page renders its tables dynamically and cannot be read directly. Treat them as good to within a few percent, not as quotes. Regions other than us-east-1, committed-use discounts, and free-tier credits all move these numbers.
+
+**Re-verify anything before it reaches a real budget.** Prices drift, and a figure with a date is only trustworthy near that date.
 
 ## How To Use This
 
@@ -21,7 +29,7 @@ Do not read this file top to bottom and pick favorites. Work from the profile:
 |---|---|---|---|---|
 | Serverless functions (Lambda, Vercel, Cloudflare Workers) | Spiky or unpredictable traffic; low steady volume; no ops capacity | Sustained high volume; long-running work; heavy cold-start sensitivity | Duration caps (15min Lambda, less on edge); per-invocation cost crosses over containers around 20-40% sustained utilization | $0 at rest, dominated by invocation count |
 | Container on PaaS (Fly, Railway, Render, App Runner) | Steady traffic; want containers without cluster ops; small team | Need fine-grained scheduling or heavy multi-service orchestration | Vertical scaling limits per instance; fewer knobs than ECS/K8s | $5-50/mo per small instance |
-| ECS Fargate | Steady traffic; already on AWS; want containers without node management | Cost-sensitive at high sustained volume (EC2 backing is cheaper) | Task-level scaling; per-vCPU-hour pricing gets expensive at scale | ~$30-60/mo per always-on small task |
+| ECS Fargate | Steady traffic; already on AWS; want containers without node management | Cost-sensitive at high sustained volume (EC2 backing is cheaper) | Task-level scaling; per-vCPU-hour pricing gets expensive at scale | **[v]** $36/mo per always-on 1vCPU/2GB task ($0.04048/vCPU-hr + $0.004445/GB-hr) |
 | ECS on EC2 / EKS | High sustained volume; need cost control or custom scheduling | Team of 1-3 with no ops capacity | Node management burden is real | Cheaper per unit at scale, higher fixed overhead |
 | VPS (Hetzner, DigitalOcean) | Cost is the dominant constraint; predictable load; comfortable with ops | Need managed failover; compliance requires managed infra | Manual scaling and patching | $5-40/mo, often 3-5x cheaper than equivalent managed |
 
@@ -31,9 +39,9 @@ Do not read this file top to bottom and pick favorites. Work from the profile:
 
 | Option | Choose when | Avoid when | Ceiling | Ballpark |
 |---|---|---|---|---|
-| Managed Postgres (RDS, Cloud SQL) | Relational access; joins; transactions; the default correct answer for most systems | Extreme write volume; genuinely schemaless data | Single writer. Vertical scale, then read replicas, then sharding | $15/mo (t4g.micro) to $250+/mo (m6g.large multi-AZ) |
+| Managed Postgres (RDS, Cloud SQL) | Relational access; joins; transactions; the default correct answer for most systems | Extreme write volume; genuinely schemaless data | Single writer. Vertical scale, then read replicas, then sharding | **[v]** t4g.micro ~$14/mo, t4g.small ~$26/mo, t4g.medium+100GB ~$59/mo, m6g.large multi-AZ ~$255/mo |
 | Supabase / Neon / PlanetScale | Small team; want Postgres or MySQL plus auth/APIs; fast start | Need fine-grained instance control; unusual extension requirements | Connection limits bite early — check pooling behavior against expected concurrency | $0-25/mo start, $100-400/mo growth |
-| Aurora | Need Postgres or MySQL past single-instance limits; want fast failover | Small scale — the fixed cost is not justified | Scales reads well; writes still single-master unless multi-master | $60/mo minimum, realistically $200+ |
+| Aurora | Need Postgres or MySQL past single-instance limits; want fast failover | Small scale — the fixed cost is not justified | Scales reads well; writes still single-master unless multi-master | **[v]** Serverless v2 floor ~$44/mo (0.5 ACU x $0.12/ACU-hr); realistic production with an HA reader $200-400+ |
 
 **Connection limits are the most common surprise.** Serverless compute plus a connection-limited Postgres is a classic mismatch. If the design pairs them, specify a pooler (PgBouncer, RDS Proxy, Supabase pooler) explicitly.
 
@@ -51,7 +59,7 @@ Do not read this file top to bottom and pick favorites. Work from the profile:
 
 | Option | Choose when | Avoid when | Ceiling | Ballpark |
 |---|---|---|---|---|
-| Redis (ElastiCache, Upstash, Redis Cloud) | Read TPS exceeds what the DB serves; sessions; rate limiting; queues | The DB is not actually the bottleneck yet | Memory-bound; eviction policy matters | $10-15/mo small, $100+/mo HA |
+| Redis (ElastiCache, Upstash, Redis Cloud) | Read TPS exceeds what the DB serves; sessions; rate limiting; queues | The DB is not actually the bottleneck yet | Memory-bound; eviction policy matters | **[v]** ElastiCache cache.t4g.medium 2-node HA ~$95/mo compute-only |
 | In-process cache | Single instance; small hot set; tolerant of per-instance inconsistency | Multiple instances needing coherence | No cross-instance invalidation | Free |
 | CDN (CloudFront, Cloudflare, Fastly) | Static assets; geographically distributed users; cacheable API responses | Everything is per-user and uncacheable | Only helps cacheable content | $0-20/mo at low volume |
 
@@ -62,7 +70,7 @@ Do not read this file top to bottom and pick favorites. Work from the profile:
 | Option | Choose when | Avoid when | Ceiling | Ballpark |
 |---|---|---|---|---|
 | SQS | Decoupling work; retries; smoothing bursts | Need ordering across all messages or replay | FIFO throughput is lower than standard | Effectively free at low volume |
-| Kinesis / Kafka | Ordered streams; multiple consumers; replay needed | Simple background jobs — this is overkill | Operational complexity, shard management | Kinesis ~$15/mo per shard; MSK far more |
+| Kinesis / Kafka | Ordered streams; multiple consumers; replay needed | Simple background jobs — this is overkill | Operational complexity, shard management | **[v]** Kinesis $10.95/shard-month provisioned plus PUT payload; MSK 3x kafka.m5.large ~$460/mo compute, ~$610/mo with 500GB/broker |
 | Postgres-backed queue (pgmq, Graphile Worker, Sidekiq) | Already have Postgres; moderate volume; want one fewer service | Very high throughput | Competes with app traffic for DB resources | Free, reuses existing DB |
 
 **Postgres-as-queue is underrated at small scale.** Below a few hundred jobs per second it removes a whole service from the diagram.
@@ -71,11 +79,11 @@ Do not read this file top to bottom and pick favorites. Work from the profile:
 
 | Option | Choose when | Avoid when | Ballpark |
 |---|---|---|---|
-| ALB | Multiple instances on AWS; need health checks and TLS termination | Single instance — it is pure overhead | ~$18/mo base plus traffic |
+| ALB | Multiple instances on AWS; need health checks and TLS termination | Single instance — it is pure overhead | **[v]** $16.43/mo base ($0.0225/hr) plus LCU charges |
 | Cloudflare | Want DDoS protection, CDN, and TLS in one layer | Need deep AWS-native integration | $0-20/mo |
 | Platform-provided (Vercel, Fly, Render) | Already on that platform | Need custom routing rules | Included |
 
-An ALB at ~$18/mo base is a real line item for a hobby-scale project. At one instance, skip it.
+An ALB at $16/mo base is a real line item for a hobby-scale project. At one instance, skip it.
 
 ## Cost Sanity Anchors
 
