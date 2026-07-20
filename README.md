@@ -1,6 +1,8 @@
-# system-design-architecture
+# stackfit
 
-A Claude Code skill that interviews you about what you are actually building, challenges the stack you were about to reach for, and emits an interactive architecture diagram plus a spec another agent can build from.
+**Stop defaulting to the same stack.** Interview-driven system design for Claude Code.
+
+A skill that interviews you about what you are actually building, challenges the stack you were about to reach for, and emits an interactive architecture diagram plus a spec another agent can build from.
 
 Two files come out the other end:
 
@@ -20,25 +22,25 @@ It is not anti-default. For plenty of systems the popular stack is genuinely cor
 Clone straight into your skills directory. `SKILL.md` sits at the repo root, so the clone target becomes the skill name.
 
 ```bash
-git clone https://github.com/ChiFungHillmanChan/system-design-architecture.git \
-  ~/.claude/skills/system-design-architecture
+git clone https://github.com/ChiFungHillmanChan/stackfit-claude-skill.git \
+  ~/.claude/skills/stackfit
 ```
 
 For a single project instead of globally:
 
 ```bash
-git clone https://github.com/ChiFungHillmanChan/system-design-architecture.git \
-  .claude/skills/system-design-architecture
+git clone https://github.com/ChiFungHillmanChan/stackfit-claude-skill.git \
+  .claude/skills/stackfit
 ```
 
-Restart Claude Code, or start a new session. Verify with `/system-design-architecture`.
+Restart Claude Code, or start a new session. Verify with `/stackfit`.
 
 ## Use
 
 Invoke explicitly:
 
 ```
-/system-design-architecture
+/stackfit
 ```
 
 Or just describe the problem — the skill triggers on phrasing like "design the architecture for a ride-sharing backend", "what stack should I use for this", "what database should I use", "how should I build this at scale".
@@ -104,7 +106,7 @@ Clicking any component shows what it is, which requirement justified it, its exa
 ## Validating Generated Output
 
 ```bash
-node ~/.claude/skills/system-design-architecture/references/validate.js \
+node ~/.claude/skills/stackfit/references/validate.js \
   docs/architecture/my-system-design.html
 ```
 

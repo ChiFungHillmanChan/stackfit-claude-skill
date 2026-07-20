@@ -1,9 +1,9 @@
 ---
-name: system-design-architecture
+name: stackfit
 description: Interview-driven system design. Extracts real requirements (TPS, latency, availability, consistency, budget), challenges default stacks, then emits an interactive HTML architecture diagram plus a buildable markdown spec. Use when the user asks to design a system or architecture, asks "what stack should I use", "how should I build X at scale", "design the architecture for X", "what database should I use", or is about to commit to infrastructure choices for a new project or a rewrite.
 ---
 
-# System Design Architecture
+# Stackfit — System Design Architecture
 
 Turn a vague product idea into a defended architecture, an interactive diagram, and a spec another agent can build from.
 
@@ -213,7 +213,7 @@ Rationale and rejected alternatives live in the HTML, not here. The markdown sta
 After writing the HTML, run the validator and fix anything it reports. Do not claim the design is finished until it passes.
 
 ```bash
-node <skill-dir>/references/validate.js docs/architecture/<system-name>-design.html
+node ~/.claude/skills/stackfit/references/validate.js docs/architecture/<system-name>-design.html
 ```
 
 It checks what review by eye misses: cost rows that do not sum to the headline figure, nodes missing a `why` or `ceiling` (Gate 1 violations), edges pointing at nonexistent nodes, overlapping grid cells, external requests that break the self-contained rule, and an MVP tier above the stated budget (Gate 3 violation).
