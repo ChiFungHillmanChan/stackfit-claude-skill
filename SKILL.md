@@ -23,11 +23,13 @@ Violating any of these invalidates the output.
 
 1. **Never name a component before the profile table exists.** Not in passing, not as an example. The interview comes first.
 2. **Never design a system you have not narrowed.** "Design YouTube" gets narrowed to one subsystem before anything else happens.
-3. **Never leave a profile field blank pending user input.** Draft a reasoned estimate with visible arithmetic. A wrong number the user can correct beats a blank that hands the work back.
-4. **Never include a component that cannot cite a specific profile line.** If it cannot cite one, delete it.
-5. **Never emit a design whose first tier exceeds the stated budget.** Revise, or state the gap in numbers.
-6. **Never present an assumption as a fact.** Anything inferred stays marked `[assumed]` through to both output files.
-7. **Never skip or reorder phases.** The gates run even when the answer looks obvious.
+3. **Always ask the three scope questions. Never infer them.** They are the user's to answer, and guessing them silently invalidates everything downstream. If the user's message appears to answer one, confirm it rather than assuming.
+4. **Ask about any ambiguity in the user's own words.** "Frontend only", "1,000 users", "real-time" — if a phrase could mean two materially different systems, ask. Only the user knows. Noting an ambiguity and then guessing is worse than not noticing, because it looks resolved.
+5. **Never leave a *derived* profile field blank.** Draft a reasoned estimate with visible arithmetic for things like TPS, p99 and data volume, which nobody can answer cold. This rule covers the numbers you infer — never the scope questions or the user's own ambiguous wording.
+6. **Never include a component that cannot cite a specific profile line.** If it cannot cite one, delete it.
+7. **Never emit a design whose first tier exceeds the stated budget.** Revise, or state the gap in numbers.
+8. **Never present an assumption as a fact.** Anything inferred stays marked `[assumed]` through to both output files.
+9. **Never skip or reorder phases.** The gates run even when the answer looks obvious.
 
 ---
 
@@ -87,7 +89,11 @@ Once scope is narrow enough to design, ask exactly three, together, in one messa
 2. Who uses it, and roughly how many?
 3. What is your budget ceiling per month?
 
-If the user cannot answer question 3, assume the cheapest tier meeting the requirements and mark it `[assumed]`.
+**Ask them. Do not infer them from the user's opening message.** A request like "a gaming site for 20 beta testers and 1,000 users" looks like it answers two of the three, but "1,000 users" could mean total users, concurrent users, or something else entirely, and each is a different system. Confirm rather than assume.
+
+Add a fourth or fifth question whenever the user's own phrasing is ambiguous in a way that changes the design. Common offenders: "frontend only" (no persistence at all, or no custom backend?), "real-time" (sub-second, or just not batch?), "scalable" (to what number?), and any bare figure without a unit.
+
+Only if the user explicitly says they do not know does a scope answer become an assumption — and then it is marked `[assumed]` like any other.
 
 ### Functional requirements
 

@@ -154,7 +154,10 @@ const firstTier = TIERS?.[tierKeys[0]];
 const budgetRow = (SYSTEM?.profile || []).find(r => /budget/i.test(r[0]));
 if (budgetRow && firstTier) {
   const ceiling = parseInt(String(budgetRow[1]).replace(/[^\d]/g, ""), 10);
-  if (ceiling && firstTier.cost > ceiling)
+  // Guard on Number.isFinite, not truthiness: a hard "$0, free tiers only"
+  // ceiling parses to 0, which is falsy, and would skip the check entirely —
+  // exactly the case where the budget matters most.
+  if (Number.isFinite(ceiling) && firstTier.cost > ceiling)
     fail.push(`first tier "${tierKeys[0]}" costs $${firstTier.cost} but budget ceiling is $${ceiling} — Gate 4 violated`);
 }
 
