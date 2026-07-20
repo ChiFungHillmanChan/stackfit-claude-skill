@@ -241,7 +241,18 @@ A tool that tells you to stop guessing about cost should not guess about cost. S
 
 Prices in `references/service-catalog.md` marked **[v]** were verified on **2026-07-20** against vendor pricing pages, cross-referenced against price-tracking sources reading the AWS Price List API where vendor pages render dynamically. Everything else is an explicit order-of-magnitude anchor.
 
-That pass found real errors in the first draft, including one 66% overstatement — ECS Fargate at four tasks was written as $240/mo when the on-demand rate gives $144. Corrected.
+That pass found real errors in the first draft. The notable ones:
+
+| Claim | Reality |
+|---|---|
+| ECS Fargate, 4 tasks — $240/mo | $144/mo. **66% overstated.** |
+| Fly.io shared-cpu-2x 1GB, 3 machines — $60/mo | $19.92/mo. **3x overstated.** |
+| Upstash Redis 2GB — $45/mo | **That tier does not exist.** Fixed plans jump 1GB/$20 straight to 5GB/$100. |
+| Tiger Cloud 4vCPU/16GB — $265/mo | **Unverifiable.** Tiger Data publishes only "from $36/mo" and the storage rate; per-size compute appears solely in their signed-in console. |
+
+All corrected, and the Tiger Cloud figures are now labelled estimates in both the examples and the catalog rather than presented as fact. The refrigeration example's totals moved from $500/$1,759/$4,235 to $459/$1,666/$3,873 as a result.
+
+Two plan restrictions were also confirmed, both of which invalidate designs rather than merely reprice them: Vercel's Hobby plan forbids commercial use — their terms name "any method of requesting or processing payment from visitors" — while Cloudflare Pages' free tier permits it.
 
 Two things this does **not** mean:
 

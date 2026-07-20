@@ -56,7 +56,7 @@ No service boundaries. None would clear a condition.
 | Compute | Vercel | Pro plan, $20/mo | Read TPS 8/s, spiky; Hobby forbids commercial use |
 | Database | Supabase Postgres | Free tier, 500MB | 200MB/yr, relational access pattern |
 | Payments | Stripe Checkout | Hosted | Card data must never reach our servers |
-| Email | Resend | Free tier | ~350 confirmations/mo against a 3,000 allowance |
+| Email | Resend | Free tier | ~350 confirmations/mo against a 3,000/mo allowance (also capped 100/day; peak day is ~30) |
 | Cache | **None** | — | Nothing measured hurts. Adding one buys invalidation bugs for no gain. |
 | Queue | **None** | — | No operation is slow enough that a user should not wait for it. |
 
@@ -191,7 +191,7 @@ Revisit only when a measurement shows the schedule query hurting — not before.
 3. Set up Vercel on the **Pro** plan. Hobby forbids commercial use and a studio taking payments is commercial.
 4. Enable Supabase connection pooling on day one. Serverless concurrency against a connection-limited Postgres is the most common way this stack falls over.
 5. Integrate Stripe Checkout in hosted mode. Card data must never reach your servers.
-6. Wire Resend for booking confirmations.
+6. Wire Resend for booking confirmations. The free tier is 3,000/month but also 100/day — the Monday release burst is the day to check against that cap.
 7. Add one alert: Supabase database size above 400MB. It is the only number worth watching.
 
 ## Scaling Triggers
