@@ -1,5 +1,9 @@
 # stackfit
 
+[![validate](https://github.com/ChiFungHillmanChan/stackfit-claude-skill/actions/workflows/validate.yml/badge.svg)](https://github.com/ChiFungHillmanChan/stackfit-claude-skill/actions/workflows/validate.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-8A63D2.svg)](https://docs.claude.com/en/docs/claude-code/skills)
+
 **Stop defaulting to the same stack.** Interview-driven system design for Claude Code.
 
 A skill that interviews you about what you are actually building, challenges the stack you were about to reach for, and emits an interactive architecture diagram plus a spec another agent can build from.
@@ -18,6 +22,10 @@ This skill inverts the order: requirements first, components second, and every c
 **It is not anti-default, and it is not pro-complexity.** For plenty of systems the popular stack is genuinely correct, and the skill says so plainly with the reasoning shown. Adding a queue, a cache, a CDN and a read replica to a tool serving 200 people is the same unexamined reflex as forcing serverless onto a write-heavy pipeline — just wearing better clothes. Both are failures, and the skill guards both directions.
 
 The two worked examples in `examples/` are deliberately at opposite ends: one concludes "$20/mo, five components, stop here"; the other rejects the default stack outright.
+
+![Clicking a component shows why it was chosen, what it costs, and what breaks first](assets/node-detail.jpg)
+
+Every component in the diagram is clickable. Each one has to name the requirement that justified it and the symptom you will see when it runs out — here, that batching device messages is the difference between $146/mo and $1,037/mo.
 
 ## Install
 
@@ -152,6 +160,8 @@ Two runs at opposite ends of the range, both in `examples/`. Open the HTML local
 
 `small-booking-app-design.html` — class booking for one yoga studio. 800 members, solo developer, $50/mo ceiling.
 
+![The reflex stack judged as correct, with two tiers and $20/mo](assets/verdict-correct.jpg)
+
 The verdict:
 
 ```
@@ -176,6 +186,8 @@ The output is short because the system is small. That is the correct result, not
 Here the research phase caught the decisive number. AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds generates 1.04 billion messages a month: **$1,037/mo in messaging alone, 86% of the entire budget, before any database exists.** Batching 10 readings per publish cuts that to $104.
 
 A default design never surfaces that number, because a default design never computes it.
+
+![The reflex stack rejected, with three deployables from one monorepo](assets/verdict-rejected.jpg)
 
 This run rejected the reflex stack, with reasons:
 

@@ -542,7 +542,10 @@ function elbow(a, b) {
   if (Math.abs(ay - by) < 4 && fwd)
     return { d: `M${p.x + NW} ${ay} H${q.x - 8}`, lx: (p.x + NW + q.x) / 2, ly: ay - 7 };
   if (fwd) {
-    const mx = p.x + NW + (q.x - p.x - NW) / 2;
+    // Drop the vertical run in the gutter immediately left of the target
+    // column. A midpoint would land inside an intervening node on any jump
+    // wider than one column.
+    const mx = q.x - (GX - NW) / 2;
     return { d: `M${p.x + NW} ${ay} H${mx} V${by} H${q.x - 8}`, lx: mx + 6, ly: (ay + by) / 2 - 5 };
   }
   // same column or backward: route vertically between stacked nodes
@@ -651,7 +654,10 @@ el("stack").innerHTML = (SYSTEM.stack || []).map(([layer, choice, why]) =>
 // Gate 3 output: the reflex stack, named and judged. Rendered verbatim so the
 // reasoning travels with the diagram rather than living only in chat.
 if (SYSTEM.verdict) {
-  const rejected = /^\s*rejected/im.test(SYSTEM.verdict);
+  // Match the verdict line itself. "Rejected" sits after the "Verdict:"
+  // label, not at line start, so an anchored pattern silently misses it and
+  // a rejection renders with the accept colour.
+  const rejected = /verdict:\s*rejected/i.test(SYSTEM.verdict);
   el("verdict").className = "verdict" + (rejected ? " rejected" : "");
   el("verdict").innerHTML =
     `<h4>The reflex stack, judged</h4><pre>${esc(SYSTEM.verdict.trim())}</pre>`;

@@ -1,0 +1,61 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate-designs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate the diagram template
+        run: node references/validate.js references/html-template.html
+
+      - name: Validate every worked example
+        run: |
+          status=0
+          for f in examples/*.html; do
+            echo "--- $f"
+            node references/validate.js "$f" || status=1
+          done
+          exit $status
+
+      - name: Confirm the validator still catches defects
+        run: |
+          # A validator that only ever prints PASS is worthless. Mutate a known
+          # example and require a non-zero exit.
+          set -e
+          src=examples/small-booking-app-design.html
+          check() {
+            if node references/validate.js "$1" >/dev/null 2>&1; then
+              echo "FAIL: validator accepted a file with $2"
+              exit 1
+            fi
+            echo "ok: caught $2"
+          }
+          sed 's/cost: 20,/cost: 999,/'            "$src" > /tmp/m1.html
+          sed 's/  stack: \[/  stack_off: [/'      "$src" > /tmp/m2.html
+          sed 's/  verdict: `/  verdict_off: `/'   "$src" > /tmp/m3.html
+          sed 's/patterns: \[/patterns_off: [/'    "$src" > /tmp/m4.html
+          check /tmp/m1.html "broken cost arithmetic"
+          check /tmp/m2.html "missing stack decision"
+          check /tmp/m3.html "missing reflex-stack verdict"
+          check /tmp/m4.html "missing access patterns"
+
+      - name: Confirm outputs are self-contained
+        run: |
+          # The whole point is that these open offline. Any external reference
+          # breaks that promise.
+          if grep -rnE '(src|href)="https?://' examples/*.html references/html-template.html; then
+            echo "FAIL: external reference found in a generated page"
+            exit 1
+          fi
+          echo "ok: no external references"
