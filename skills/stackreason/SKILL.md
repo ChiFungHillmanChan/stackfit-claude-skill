@@ -1,9 +1,9 @@
 ---
-name: stackfit
+name: stackreason
 description: Interview-driven system design. Narrows scope, extracts real requirements (TPS, latency, availability, consistency, budget), reasons from access patterns, picks the application stack and repo shape, challenges default choices in both directions, then emits an interactive HTML architecture diagram plus a buildable markdown spec. Use when the user asks to design a system or architecture, asks "what stack should I use", "what database should I use", "monolith or microservices", "how should I build X at scale", "design YouTube/Uber/Airbnb", is preparing for a system design interview, or is about to commit to infrastructure choices for a new project or a rewrite.
 ---
 
-# Stackfit — System Design Architecture
+# Stackreason — System Design Architecture
 
 Turn a vague product idea into a defended architecture, an interactive diagram, and a spec another agent can build from.
 
@@ -329,7 +329,7 @@ Rationale and rejected alternatives live in the HTML. The markdown stays a build
 ### Validate before reporting done
 
 ```bash
-node ~/.claude/skills/stackfit/references/validate.js docs/architecture/<name>-design.html
+node ~/.claude/skills/stackreason/references/validate.js docs/architecture/<name>-design.html
 ```
 
 Catches what review by eye misses: cost rows not summing to the headline, nodes missing a `why` or `ceiling`, edges pointing at nonexistent nodes, overlapping layout, same-row edges drawing through intervening nodes, external requests breaking the self-contained rule, and a first tier above budget.

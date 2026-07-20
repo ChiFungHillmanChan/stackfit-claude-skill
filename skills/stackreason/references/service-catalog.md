@@ -1,3 +1,5 @@
+<!-- prices-verified: 2026-07-20 -->
+
 # Service Catalog
 
 Starting points for component selection. Selection criteria and ceilings age slowly; **prices age fast**. Verify any price that reaches the final cost table.

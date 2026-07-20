@@ -1,0 +1,18 @@
+{
+  "name": "stackreason",
+  "description": "System design skills: interview the requirements, justify every component, emit the diagram and the spec.",
+  "owner": {
+    "name": "Hillman Chan"
+  },
+  "plugins": [
+    {
+      "name": "stackreason",
+      "description": "Interview-driven system design. Reason about your stack instead of reflexing into it.",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Hillman Chan"
+      }
+    }
+  ]
+}

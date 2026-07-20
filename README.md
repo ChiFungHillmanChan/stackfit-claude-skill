@@ -1,99 +1,101 @@
-# stackfit
+<img src="assets/logo.svg" width="72" align="right" alt="">
 
-[![validate](https://github.com/ChiFungHillmanChan/stackfit-claude-skill/actions/workflows/validate.yml/badge.svg)](https://github.com/ChiFungHillmanChan/stackfit-claude-skill/actions/workflows/validate.yml)
+# stackreason
+
+[![validate](https://github.com/ChiFungHillmanChan/stackreason/actions/workflows/validate.yml/badge.svg)](https://github.com/ChiFungHillmanChan/stackreason/actions/workflows/validate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-8A63D2.svg)](https://docs.claude.com/en/docs/claude-code/skills)
+[![prices verified](https://img.shields.io/badge/prices%20verified-2026--07--20-047857.svg)](docs/maintaining-prices.md)
 
-**Stop defaulting to the same stack.** Interview-driven system design for Claude Code.
+**Reason about your stack. Don't reflex into it.**
 
-A skill that interviews you about what you are actually building, challenges the stack you were about to reach for, and emits an interactive architecture diagram plus a spec another agent can build from.
+Five system-design skills for AI coding agents. They interview you about what you are actually building, make every component justify itself against a number, and emit an interactive architecture diagram plus a spec another agent can build from.
 
-Two files come out the other end:
+Works with Claude Code, Codex, Cursor, Gemini CLI, and anything else that reads markdown instructions.
 
-- **`<system>-design.html`** — self-contained interactive page. Scale tiers you can tab between (two for a small system, three for a growing one), clickable components, access patterns, stack decisions, cost breakdown per tier, and an ordered start-here checklist.
-- **`<system>-design.md`** — build spec written as constraints, precise enough that a coding agent starts implementing without asking follow-up questions.
+![Clicking a component shows why it was chosen, what it costs, and what breaks first](assets/node-detail.jpg)
 
 ## Why
 
 Engineers reach for the same stack regardless of requirements. Vercel plus Supabase gets applied to a 50-user internal tool and to a write-heavy ingestion pipeline alike, because the reflex is faster than the analysis. The cost surfaces later as a migration.
 
-This skill inverts the order: requirements first, components second, and every component has to justify itself against a number.
+This inverts the order: requirements first, components second, and **every component must cite the requirement it serves.** Anything that cannot is deleted.
 
-**It is not anti-default, and it is not pro-complexity.** For plenty of systems the popular stack is genuinely correct, and the skill says so plainly with the reasoning shown. Adding a queue, a cache, a CDN and a read replica to a tool serving 200 people is the same unexamined reflex as forcing serverless onto a write-heavy pipeline — just wearing better clothes. Both are failures, and the skill guards both directions.
+It is not anti-default, and it is not pro-complexity. Putting a queue, a cache, a CDN and a read replica in front of a tool serving 200 people is the same unexamined reflex as forcing serverless onto a write-heavy pipeline — and the more expensive one, because someone then maintains all of it. Both directions are guarded.
 
-The two worked examples in `examples/` are deliberately at opposite ends: one concludes "$20/mo, five components, stop here"; the other rejects the default stack outright.
+**A run that concludes "the popular managed stack is correct here, and here is what breaks first" has succeeded completely.**
 
-![Clicking a component shows why it was chosen, what it costs, and what breaks first](assets/node-detail.jpg)
+## The five skills
 
-Every component in the diagram is clickable. Each one has to name the requirement that justified it and the symptom you will see when it runs out — here, that batching device messages is the difference between $146/mo and $1,037/mo.
+| Skill | Use it when |
+|---|---|
+| **stackreason** | Designing something new. The full interview, gates, and artifacts. |
+| **architecture-review** | Auditing a system that already exists. What is unjustified, what breaks next, what costs more than it returns. |
+| **capacity-estimate** | You want a number, not an architecture. "What does 100k users cost?" with the arithmetic shown. |
+| **interview-drill** | Practising system design interviews against an interviewer that pushes back. |
+| **diagram-only** | The design is settled; you just need the artifact for a deck or an RFC. |
 
 ## Install
 
-Clone straight into your skills directory. `SKILL.md` sits at the repo root, so the clone target becomes the skill name.
+### Claude Code — all five skills
+
+```
+/plugin marketplace add ChiFungHillmanChan/stackreason
+/plugin install stackreason
+```
+
+### Claude Code — just the design skill
 
 ```bash
-git clone https://github.com/ChiFungHillmanChan/stackfit-claude-skill.git \
-  ~/.claude/skills/stackfit
+git clone https://github.com/ChiFungHillmanChan/stackreason /tmp/sr
+cp -r /tmp/sr/skills/stackreason ~/.claude/skills/
 ```
 
-For a single project instead of globally:
+### Codex, Cursor, and other AGENTS.md agents
 
-```bash
-git clone https://github.com/ChiFungHillmanChan/stackfit-claude-skill.git \
-  .claude/skills/stackfit
+Clone somewhere permanent, then add to your `AGENTS.md`:
+
+```markdown
+When the user asks about system design, architecture, what stack to use,
+or what database to use, read ~/tools/stackreason/skills/stackreason/SKILL.md
+and follow it exactly.
 ```
 
-Restart Claude Code, or start a new session. Verify with `/stackfit`.
+Full instructions, including Gemini CLI and no-harness usage, in [docs/porting.md](docs/porting.md).
 
-## Use
+## What a run looks like
 
-Invoke explicitly:
-
-```
-/stackfit
-```
-
-Or just describe the problem — the skill triggers on phrasing like "design the architecture for a ride-sharing backend", "what stack should I use for this", "what database should I use", "how should I build this at scale".
-
-You will be asked exactly three questions:
+Three questions you must answer:
 
 1. What are you building, in one sentence?
 2. Who uses it, and roughly how many?
 3. What is your budget ceiling per month?
 
-Then it drafts the rest — write TPS, read TPS, p99 target, availability, consistency, data volume, compliance — with the arithmetic shown for every estimate:
+Then it drafts everything else — with the arithmetic visible, so you correct the input rather than the output:
 
 ```
 Write TPS ......  ~40/s   [assumed: 50k DAU x 7 writes/day, 3x peak]
 Read TPS .......  ~600/s  [assumed: 15:1 read/write for a feed app]
 p99 latency ....  200ms   [assumed: interactive UI, not realtime]
-Availability ...  99.9%   [assumed: 43min/mo downtime tolerable]
 Budget .........  $300/mo [from Q3]
 ```
 
-You correct what is wrong. Silence means accepted. This exists because almost nobody can answer "what is your write TPS" cold, but everybody can spot that 50k DAU is off by 10x.
+Almost nobody can answer "what is your write TPS" cold. Everybody can spot that 50k DAU is off by 10x.
 
-## How It Works
+## How it works
 
 | Phase | What happens |
 |---|---|
-| 0. Repo scan | Reads `package.json`, migrations, Dockerfiles, workspace config. A repo with 40 Postgres migrations does not get a DynamoDB proposal. |
-| 1. Scope | Narrows large systems to one subsystem, then three unskippable questions, then functional requirements. |
-| 2. Profile | Classifies the system (S/M/L) and drafts every requirement with visible arithmetic. You correct by exception. |
-| 3. Research | 3-6 parallel web searches for current pricing and service limits. Patterns come from built-in knowledge; it does not search for what a load balancer is. |
-| 4. Design | Access patterns → data layer → API → application stack → topology and tiers. In that order, because each constrains the next. |
+| 0. Repo scan | Reads `package.json`, migrations, Dockerfiles, IaC. Forty Postgres migrations does not get a DynamoDB proposal. |
+| 1. Scope | Narrows large systems to one subsystem, then asks the three questions. |
+| 2. Profile | Classifies the system S/M/L and drafts every requirement with visible arithmetic. |
+| 3. Research | Parallel searches for current pricing and service limits. It does not search for what a load balancer is. |
+| 4. Design | Access patterns → data layer → API → application stack → topology. In that order, because each constrains the next. |
 | 5. Gates | Four mandatory checks before anything is drawn. |
 | 6. Emit | Writes both files, then validates them. |
 
-### Large systems get narrowed, not attempted
-
-Asked to "design YouTube", the skill refuses to design YouTube. Upload-and-transcode is write-heavy with long-running jobs; watch-and-delivery is read-heavy and CDN-dominated; creator analytics is columnar and tolerates eventual consistency. Averaging those produces a diagram that fits none of them.
-
-It presents the subsystems, you pick one, and the rest become named external dependencies with defined interfaces.
-
 ### Access patterns choose the database
 
-The skill never asks "SQL or NoSQL" — that question has no answer. It writes down how the data is actually read and written first, and the store follows:
+It never asks "SQL or NoSQL" — that question has no answer. It writes down how the data is actually read and written first:
 
 ```
 Primary read:   class schedule for a date range, joined to
@@ -102,169 +104,110 @@ Primary write:  create booking + decrement capacity
                 -- 2/s, must be one transaction
 ```
 
-That is what picks Postgres, and it is recorded in the output so the choice stays defensible later.
+That is what picks Postgres, and it stays in the output so the choice remains defensible in six months.
+
+### Large systems get narrowed, not attempted
+
+Asked to design YouTube, it refuses. Upload-and-transcode is write-heavy with long jobs; watch-and-delivery is read-heavy and CDN-dominated; creator analytics is columnar and tolerates eventual consistency. Averaging those fits nothing. It offers the subsystems, you pick one, and the rest become named interfaces.
 
 ### It decides the application layer too
 
-Language, framework, runtime topology, and repo shape — not just infrastructure. Including the distinction most discussions blur: **monorepo versus polyrepo is code organization; monolith versus services is runtime topology.** They are independent axes. A monorepo running several services is a common and often correct combination.
+Language, framework, runtime topology, repo shape — not just infrastructure. Including the distinction most discussions blur: **monorepo versus polyrepo is code organisation; monolith versus services is runtime topology.** Independent axes. A monorepo running several services is common and often correct.
 
-Services get split only when a boundary clears a stated condition — different scaling shape, different runtime requirement, different availability requirement, hard team boundary, or a genuinely different language. A boundary with no condition does not ship.
+Services split only when a boundary clears a stated condition. A boundary with no condition does not ship.
 
 ### The four gates
 
-**Gate 1 — right-size.** What is the least infrastructure meeting every profile line? Start there. A Class S system is expected to produce a small design, and concluding "$0/mo, one repo, here's what breaks first" is a complete success.
+**Gate 1 — right-size.** What is the least infrastructure meeting every profile line? A small system is expected to produce a small design.
 
-**Gate 2 — every component cites a requirement.** A service enters the design only when attached to a specific profile line. "Good practice" is not a citation. Anything that cannot cite a line gets deleted.
+**Gate 2 — every component cites a requirement.** "Good practice" is not a citation — the validator rejects that phrase specifically.
 
-**Gate 3 — the lazy default gets named and judged out loud.** The skill writes down the reflex answer for your system class, then evaluates it against your numbers in the open:
+**Gate 3 — the reflex stack is named and judged out loud.** Both verdicts are successes; the reasoning is the deliverable.
 
-```
-Reflex stack: Vercel + Supabase
-Fits:      Read TPS 600/s is comfortable. Team of 2 has no ops capacity.
-Breaks:    Nothing at this scale.
-Verdict:   Correct choice. Revisit at ~5k write TPS.
-```
+**Gate 4 — budget is a hard constraint.** Over the ceiling means the design is wrong, not that the ceiling is.
 
-That verdict is a success, not a failure. The reasoning is the deliverable, not the conclusion. Reflexively rejecting popular stacks would just be a different reflex.
+## Worked examples
 
-**Gate 4 — budget is a hard constraint.** If the first tier exceeds your stated ceiling, the design is wrong and gets revised before emitting. If the requirements genuinely cannot be met within budget, it says so and quantifies the gap rather than quietly shipping something you cannot afford.
+Three runs deliberately spanning the range, all in [`examples/`](examples/).
 
-## Output Detail
+### It stays small when small is right
 
-The HTML is fully self-contained — inline SVG, inline CSS, inline JS, zero network requests. It opens from `file://` on a plane.
+![The reflex stack judged as correct, two tiers, $20/mo](assets/verdict-correct.jpg)
 
-Each tier carries:
-
-- Its own topology, itemized cost, and total
-- A **trigger metric** — the observable signal that says move up. "Go to Growth when DB CPU sustains above 60% or p99 crosses 300ms." Not "when you get bigger."
-- A **scale-down path** — what to switch off and what it saves when traffic falls. Scaling down is treated as a requirement, not an afterthought.
-
-Clicking any component shows what it is, which requirement justified it, its exact size and cost, what breaks first with the symptom, and what was rejected in its place.
-
-## Validating Generated Output
-
-```bash
-node ~/.claude/skills/stackfit/references/validate.js \
-  docs/architecture/my-system-design.html
-```
-
-Catches what a visual check misses: cost tables that do not sum to their headline, components that skipped Gate 1, edges pointing at nonexistent nodes, overlapping layout, external requests that break the self-contained rule, and MVP tiers that blow the stated budget.
-
-The skill runs this automatically before reporting done.
-
-## Worked Examples
-
-Two runs at opposite ends of the range, both in `examples/`. Open the HTML locally to click through them.
-
-### Small — and it stays small
-
-`small-booking-app-design.html` — class booking for one yoga studio. 800 members, solo developer, $50/mo ceiling.
-
-![The reflex stack judged as correct, with two tiers and $20/mo](assets/verdict-correct.jpg)
-
-The verdict:
+A yoga studio booking app. 800 members, solo developer.
 
 ```
-Reflex stack: Vercel + Supabase + Next.js
-Fits:      2 writes/s and 8 reads/s are nowhere near any limit.
-           Bookings are relational. Solo dev has zero ops capacity.
-           Capacity decrement needs a real transaction.
-Breaks:    Nothing. Not at this scale, and not at 10x this scale.
 Verdict:   CORRECT. This is the right answer and the design stops
            here. No queue, no cache, no CDN beyond what Vercel
            already does, no read replica, no container platform.
 ```
 
-Five components, $20/mo, two tiers instead of three. The research phase still earned its place: Vercel's Hobby plan forbids commercial use, and a studio taking payments is commercial — so Pro at $20 is required, not optional. Cloudflare Pages permits commercial use free if that $20 matters.
+Five components, $20/mo, two tiers instead of three. The research still earned its place: Vercel's Hobby plan forbids commercial use, and a studio taking payments is commercial.
 
-The output is short because the system is small. That is the correct result, not an omission.
+### It rejects the default when the default is wrong
 
-### Large — and the default loses
+![The reflex stack rejected, three deployables from one monorepo](assets/verdict-rejected.jpg)
 
-`refrigeration-telemetry-design.html` — 12,000 sensors, food-safety compliance, $1,200/mo ceiling.
+12,000 refrigeration sensors, food-safety compliance, $1,200/mo ceiling.
 
-Here the research phase caught the decisive number. AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds generates 1.04 billion messages a month: **$1,037/mo in messaging alone, 86% of the entire budget, before any database exists.** Batching 10 readings per publish cuts that to $104.
+The research phase found the decisive number: AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds is 1.04 billion messages a month — **$1,037/mo in messaging alone, 86% of the budget, before any database exists.** Batching ten readings per publish cuts it to $104.
 
-A default design never surfaces that number, because a default design never computes it.
+A default design never surfaces that number because it never computes it.
 
-![The reflex stack rejected, with three deployables from one monorepo](assets/verdict-rejected.jpg)
+### It handles genuinely unusual constraints
 
-This run rejected the reflex stack, with reasons:
+A WebGL browser game, no backend at all, hard $0 ceiling. Here the reflex stack was rejected in all three parts — and the binding constraint turned out to be Cloudflare Pages' 25 MiB per-file limit, which rejects most WebGL builds at deploy time rather than at scale.
 
-```
-Reflex stack: Vercel + Supabase
-Fits:      Dashboard for 600 staff is trivial. Postgres suits the
-           relational half — sites, units, alert rules.
-Breaks:    400 writes/s sustained, 12.6B rows/yr. No columnar
-           compression means 820GB/yr and punitive storage cost.
-           Devices speak MQTT over cellular; there is no MQTT ingress.
-           Serverless has nowhere to hold the disk buffer that the
-           no-data-loss requirement demands.
-Verdict:   Rejected for ingest. The read plane is one container
-           alongside the evaluator, so adding Vercel would introduce
-           a second deploy target for no gain.
+## Validating output
+
+```bash
+node skills/stackreason/references/validate.js docs/architecture/my-design.html
 ```
 
-It also declined to add Redis at MVP — a 12,000-row current-state table serves dashboard reads fine, so a cache would buy an invalidation bug surface for no measured gain. Redis enters at Growth, when per-reading updates start contending with the ingest path.
+Catches what review by eye misses: cost tables that do not sum, components that skipped a gate, edges to nonexistent nodes, layouts the router cannot draw, external references that break offline opening, and a first tier above budget.
 
-Its stack section splits three deployables out of one monorepo, because ingest scales on message rate, the alert evaluator on rule count, and the web tier on staff concurrency — three genuinely different scaling shapes. The yoga studio gets one deployable, because nothing there differs.
+CI does not only run it — it mutates a known-good example four ways and requires rejection each time. A validator that only ever prints PASS is worthless.
 
-## Repo Layout
+## On the numbers
+
+A tool telling you to stop guessing about cost should not guess about cost.
+
+Figures marked `[v]` were verified against vendor pricing on **2026-07-20**. That pass found four material errors in the first draft, including a 66% overstatement, a threefold overstatement, and a budget line for [an Upstash tier that does not exist](docs/maintaining-prices.md).
+
+Two things this does not mean. **These are not quotes** — region, commitments and free-tier credits move them, so re-verify anything reaching a real budget. And **the architectural judgment is not independently reviewed**; the pricing is checked, the opinions in `design-principles.md` are reasoned but have not been through a production-experienced reviewer. Weigh them as argument, not authority.
+
+## Layout
 
 ```
-SKILL.md                       the skill itself — procedure
-references/
-  design-principles.md         the reasoning layer: access patterns, read/write
-                               scaling, caching costs, queues, partitioning,
-                               consistency, right-sizing, narrowing big systems
-  stack-selection.md           language, framework, topology, repo shape
-  service-catalog.md           candidate services, ceilings, cost anchors
-  html-template.html           interactive diagram scaffold
-  spec-template.md             build spec structure
-  validate.js                  output validator
-examples/
-  small-booking-app-design.{html,md}          Class S — stays small
-  refrigeration-telemetry-design.{html,md}    Class L — default rejected
+skills/
+  stackreason/          design skill + the shared reasoning layer
+    references/         principles, stack selection, catalog, template, validator
+  architecture-review/  audit an existing system
+  capacity-estimate/    arithmetic without a design
+  interview-drill/      interview practice
+  diagram-only/         artifact without an interview
+docs/                   architecture, output format, extending, prices, porting
+examples/               three worked runs, HTML + markdown
+scripts/                validate-all.sh, check-prices.sh
 ```
 
-## Customizing
+## Documentation
 
-Most tuning happens in two files. `references/service-catalog.md` holds selection criteria, ceilings, and cost anchors — if your team standardizes on a cloud or has services it will not adopt, encode that there. `references/stack-selection.md` holds language, framework, and repo-shape guidance; if your shop is Python-only or has a standing view on services, put it there.
+- [How it is built, and why](docs/architecture.md)
+- [Output format](docs/output-format.md) — hand-editing and scripting against a design
+- [Extending](docs/extending.md) — your cloud, your standards, your validator rules
+- [Maintaining prices](docs/maintaining-prices.md)
+- [Using other agents](docs/porting.md)
 
-`references/design-principles.md` is the reasoning layer and is worth reading on its own even if you never run the skill.
+## Contributing
 
-To change the diagram's look, edit the CSS variables at the top of `references/html-template.html`. The renderer is data-driven, so nothing below the `END DATA` marker needs touching.
-
-## On The Numbers
-
-A tool that tells you to stop guessing about cost should not guess about cost. So the figures here were checked rather than recalled.
-
-Prices in `references/service-catalog.md` marked **[v]** were verified on **2026-07-20** against vendor pricing pages, cross-referenced against price-tracking sources reading the AWS Price List API where vendor pages render dynamically. Everything else is an explicit order-of-magnitude anchor.
-
-That pass found real errors in the first draft. The notable ones:
-
-| Claim | Reality |
-|---|---|
-| ECS Fargate, 4 tasks — $240/mo | $144/mo. **66% overstated.** |
-| Fly.io shared-cpu-2x 1GB, 3 machines — $60/mo | $19.92/mo. **3x overstated.** |
-| Upstash Redis 2GB — $45/mo | **That tier does not exist.** Fixed plans jump 1GB/$20 straight to 5GB/$100. |
-| Tiger Cloud 4vCPU/16GB — $265/mo | **Unverifiable.** Tiger Data publishes only "from $36/mo" and the storage rate; per-size compute appears solely in their signed-in console. |
-
-All corrected, and the Tiger Cloud figures are now labelled estimates in both the examples and the catalog rather than presented as fact. The refrigeration example's totals moved from $500/$1,759/$4,235 to $459/$1,666/$3,873 as a result.
-
-Two plan restrictions were also confirmed, both of which invalidate designs rather than merely reprice them: Vercel's Hobby plan forbids commercial use — their terms name "any method of requesting or processing payment from visitors" — while Cloudflare Pages' free tier permits it.
-
-Two things this does **not** mean:
-
-- **These are not quotes.** Region, committed-use discounts, and free-tier credits all move them. Re-verify anything that reaches a real budget.
-- **The architectural judgment is not independently reviewed.** The pricing is checked; the opinions in `design-principles.md` are reasoned but have not been through a production-experienced reviewer. Weigh them as argument, not authority.
+Pricing corrections are the most valuable contribution and have their own issue template. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Caveats
 
 - Cost figures carry a check date. They drift, and a dated figure is only trustworthy near its date.
-- The service catalog's prices age faster than its selection criteria. Phase 3 pulls live pricing per run, but the catalog itself needs periodic maintenance.
+- The examples are illustrative designs, not systems that have been built and benchmarked.
 - This produces a design, not code. It stops at the spec deliberately.
-- The two worked examples are illustrative designs, not systems that have been built and benchmarked.
 
 ## License
 

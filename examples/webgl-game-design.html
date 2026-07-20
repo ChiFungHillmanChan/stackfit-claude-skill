@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StudioBook — Class Booking</title>
+<title>WebGL Browser Game — No Backend, $0</title>
 <style>
   :root {
     --bg: #fbfbfa;      --panel: #ffffff;   --ink: #1a1a18;
@@ -202,163 +202,148 @@
    ========================================================================= */
 
 const SYSTEM = {
-  name: "StudioBook — Class Booking for One Yoga Studio",
+  name: "WebGL Browser Game — No Backend, $0",
   checked: "2026-07-20",
   profile: [
-    ["System class",   "S — Small", "800 members, 1 developer, no compliance load. Expect the managed default to win."],
-    ["Write TPS",      "~2/s peak", "343 bookings/day, 80% clustered in the Monday class-release window"],
-    ["Read TPS",       "~8/s peak", "3:1 browse-to-book on schedule pages"],
-    ["Read/write shape","Read-heavy", "members browse the schedule far more often than they book"],
-    ["p99 latency",    "400ms",     "interactive, but nobody is trading stocks"],
-    ["Availability",   "99%",       "an hour down is annoying, not costly; no revenue is lost, bookings shift"],
-    ["Consistency",    "Strong on class capacity; eventual everywhere else", null],
-    ["Data volume",    "~200MB/yr", "800 members x ~450 bookings/yr x ~600B"],
-    ["Budget",         "$50/mo",    null],
-    ["Compliance",     "Member names and emails. Card data never touches our servers.", null],
-    ["Team size",      "1",         "solo developer, nights and weekends"]
+    ["System class",     "S — Small",  "20 beta testers to ~1,000 players, solo dev, no backend"],
+    ["Users",            "20 beta, then ~1,000 total", "stated"],
+    ["Server write TPS", "0",          "stated: no backend at all — every write is local IndexedDB"],
+    ["Server read TPS",  "0",          "stated: nothing is fetched from a server except static assets"],
+    ["Asset egress",     "~150GB/mo at 1,000 players", "1,000 x 50MB x ~3 full loads/mo — the only axis that scales"],
+    ["Largest single file", "over 25 MiB", "a 50MB+ WebGL build almost always has one oversized .data, .pck or .wasm"],
+    ["First-load time",  "under 10s on broadband", "the entire UX risk sits here; nothing else in this design can be slow"],
+    ["Availability",     "CDN uptime only", "there is no service to go down — nothing to run, nothing to page for"],
+    ["Consistency",      "Not applicable", "single device, single writer, no sync — this field is dropped"],
+    ["Durability",       "Progress lost if the player clears site data", "accepted consequence of the no-backend decision"],
+    ["Budget",           "$0 — free tiers only", "stated as a hard constraint"],
+    ["Compliance",       "None — no data leaves the device", "no PII, no GDPR surface, no COPPA exposure. A real benefit of this choice."],
+    ["Team size",        "1", "solo developer"]
   ],
   patterns: [
-    ["Primary read",   "Class schedule for a date range, joined to instructor and room", "8/s — relational, the join is the query"],
-    ["Primary write",  "Create booking and decrement remaining capacity",                "2/s — must be one transaction"],
-    ["Secondary read", "One member's upcoming bookings",                                 "point lookup by member id"],
-    ["Admin",          "Instructors manage classes, rosters, cancellations",             "CRUD, low volume"]
+    ["Primary write",   "Save progress blob to IndexedDB at checkpoints", "local, async, never touches a network"],
+    ["Primary read",    "Load progress at boot",                          "local point lookup by key"],
+    ["Asset fetch",     "Download WebGL payload and assets",              "~150GB/mo — this IS the system"],
+    ["Analytics",       "None",                                           "excluded by the no-backend decision; see the consequence below"]
   ],
   stack: [
-    ["Language",  "TypeScript",  "Solo developer. One language across client and server means one toolchain and one set of shared types — this matters more at team size 1 than at any other size."],
-    ["Framework", "Next.js 15",  "The public schedule needs to rank for local search; people find studios by googling. That requires server rendering, which decides the framework."],
-    ["Topology",  "Monolith, one deployable", "No component has a scaling shape differing from the rest. At 2 writes/s there is nothing to separate, and separating would add deploy surface with no payer."],
-    ["Repo",      "Single repo", "One developer, one release cadence. Anything else is ceremony."]
+    ["Language",  "Engine output + TypeScript glue", "The engine (Unity, Godot, Three.js) emits the game. Only the loader shell and progress code are hand-written, and TypeScript is right for that at team size 1."],
+    ["Framework", "Static HTML shell", "There is no framework decision worth making. A WebGL canvas behind a click has no SEO value and no server rendering to do. Add Astro only if you want a marketing page that ranks."],
+    ["Topology",  "Zero servers, zero backend", "Not a monolith — there is no backend process at all. The only moving parts are a CDN and an object store."],
+    ["Repo",      "Single repo", "One developer. Keep large binary assets out of git history; build and upload them instead."]
   ],
   verdict: `Reflex stack: Vercel + Supabase + Next.js
 
-Fits:      2 writes/s and 8 reads/s are nowhere near any limit.
-           Bookings are relational — classes, instructors, rooms,
-           members — which is exactly Postgres.
-           Solo developer has zero ops capacity to spend.
-           Capacity decrement needs a real transaction, which
-           Postgres gives and a key-value store would not.
-Breaks:    Nothing. Not at this scale, and not at 10x this scale.
-Verdict:   CORRECT. This is the right answer and the design stops
-           here. No queue, no cache, no CDN beyond what Vercel
-           already does, no read replica, no container platform.
+Fits:      Nothing, on these requirements.
+Breaks:    Supabase has no requirement to cite. You stated no
+           backend, so there is no persistence need beyond the
+           device and a database would be pure overhead.
+           Next.js SSR is meaningless for a WebGL canvas behind
+           a click — it adds bundle weight and buys no SEO.
+           Vercel Hobby caps bandwidth at 100GB/mo and projected
+           egress is ~150GB. It also forbids commercial use.
+Verdict:   Rejected entirely — unusually, all three parts.
 
-           One caveat that bites people: Vercel's Hobby plan
-           forbids commercial use, and a studio taking payments is
-           commercial. Pro at $20/mo is required, not optional.
-           Cloudflare Pages permits commercial use on its free tier
-           if that $20 genuinely matters.`,
+           Worth saying why: the reflex stack is not bad, your
+           requirements are just unusual. No backend, 50MB+ of
+           assets and a hard $0 ceiling knock out all three
+           independently. Change any one and Supabase or Vercel
+           could come back.`,
   checklist: [
-    "Create the Supabase project and apply the schema. Put a CHECK constraint on remaining_spots so the database refuses to go negative even if application logic has a bug.",
-    "Write the booking as a single transaction that decrements capacity and inserts the booking together. This is the one place in the app where strong consistency is not optional.",
-    "Set up Vercel on the Pro plan. Hobby forbids commercial use and a studio taking payments is commercial.",
-    "Add Supabase connection pooling from day one. Serverless functions plus a connection-limited Postgres is the single most common way this stack falls over, and it costs nothing to configure up front.",
-    "Integrate Stripe Checkout in hosted mode. Card data must never reach your servers — that is what keeps PCI scope near zero.",
-    "Wire Resend for booking confirmations. Free tier covers 3,000 emails a month; you need roughly 350.",
-    "Add one alert: Supabase database size above 400MB. That is the trigger for the next tier and the only number worth watching."
+    "Compress the WebGL build with Brotli before anything else. A 50MB+ raw build typically lands around 15-20MB compressed, which changes both first-load time and whether files clear the 25 MiB Pages limit.",
+    "Check every built file against Cloudflare Pages' 25 MiB per-file limit. Unity .data, Godot .pck and large .wasm routinely exceed it — this is the constraint that shapes the whole deployment.",
+    "Put any oversized asset in R2 and serve it through a custom domain bound to the bucket. R2 egress is free at any volume, which is exactly why 150GB/mo costs nothing.",
+    "Use IndexedDB for progress, never localStorage. localStorage caps around 5-10MB and is synchronous — a synchronous write on the main thread is a dropped frame in a 60fps game.",
+    "Save on checkpoints and on visibilitychange, not every frame.",
+    "Tell players plainly that progress is device-local and clearing site data erases it. With no backend this is unavoidable, so it has to be communicated rather than discovered.",
+    "Version the asset manifest with content hashes so a patch only re-downloads changed chunks. Shipping a full 50MB re-download per update wastes the one resource that scales here.",
+    "Test a cold first load on a throttled connection before inviting testers. First-load time is the entire UX risk in this design."
   ]
 };
 
 const TIERS = {
-  now: {
-    label: "Now",
-    context: "800 members",
-    cost: 20,
-    trigger: "Move up when the Supabase database passes 400MB, or free-tier bandwidth runs out, or concurrent connections approach the pooler limit. On these numbers that is roughly three years away.",
-    scaledown: "Already at the floor. The only thing below $20/mo is moving off Vercel to Cloudflare Pages, whose free tier permits commercial use — that reaches $0/mo at the cost of some Next.js feature parity.",
+  beta: {
+    label: "Beta — 20 testers",
+    context: "20 testers",
+    cost: 0,
+    trigger: "The topology does not change at 1,000 players — only the traffic does. The real trigger is a requirements change: the day you want leaderboards, cross-device saves, or beta telemetry, the no-backend decision breaks and this becomes a different design.",
+    scaledown: "Already at zero, and there is nothing to remove. Every component here is required: one serves the shell, one serves oversized assets, one stores progress.",
     costrows: [
-      ["Vercel",   "Pro plan (Hobby forbids commercial use)", 20],
-      ["Supabase", "Free tier, 500MB Postgres",                0],
-      ["Stripe",   "per-transaction, no monthly fee",          0],
-      ["Resend",   "Free tier, 3k emails/mo",                  0]
+      ["Cloudflare Pages", "Free — unlimited bandwidth, 500 builds/mo", 0],
+      ["Cloudflare R2",    "Free — 10GB storage, zero egress",          0]
     ],
     nodes: [
-      { id:"members", kind:"client", col:0, row:1, label:"Members + staff", sub:"800 members, 12 staff",
-        why:"800 members browsing and booking, 12 staff administering",
-        size:"Browser, mobile web",
+      { id:"players", kind:"client", col:0, row:1, label:"Players", sub:"20 beta testers",
+        why:"20 beta testers, each running the game entirely in their own browser",
+        size:"Browser with WebGL 2 and IndexedDB",
         cost:"$0",
-        ceiling:"n/a",
-        rejected:"A native app — a mobile web page books a yoga class perfectly well and costs nothing to distribute." },
-      { id:"app", kind:"compute", col:1, row:1, label:"Next.js on Vercel", sub:"Monolith, SSR",
-        why:"Read TPS 8/s with public schedule pages that must rank in local search",
-        size:"Vercel Pro, serverless functions",
-        cost:"$20/mo",
-        ceiling:"Serverless is the right shape here precisely because traffic is spiky and low — Monday morning bursts, near-idle otherwise. It becomes wrong above roughly 20-40% sustained utilization, which this will never reach.",
-        rejected:"A container on Fly at $5/mo — cheaper, but it gives up preview deploys and zero-config SSR for a saving that does not matter at this budget. Cloudflare Pages at $0 — viable, and the right call if the $20 is genuinely painful." },
-      { id:"stripe", kind:"external", col:2, row:0, label:"Stripe Checkout", sub:"Hosted payment",
-        why:"Compliance: card data must never touch our servers",
-        size:"Hosted checkout, per-transaction pricing",
-        cost:"~2.9% + 30c per booking",
-        ceiling:"Hosted checkout keeps PCI scope minimal. Building a custom card form would expand it enormously for a cosmetic gain.",
-        rejected:"Storing cards directly — this is never the right call for a solo developer, and rarely for anyone else." },
-      { id:"db", kind:"data", col:2, row:1, label:"Supabase Postgres", sub:"Free tier, 500MB",
-        why:"Relational access pattern plus strong consistency on capacity decrement",
-        size:"Free tier, 500MB, shared compute",
+        ceiling:"No server means no server limit. The constraints that exist are the device's: GPU capability, available memory for a 50MB+ payload, and whatever the player does to their site data.",
+        rejected:"Native or desktop builds — out of scope for a browser game, and they would not share this delivery path." },
+      { id:"pages", kind:"edge", col:1, row:0, label:"Cloudflare Pages", sub:"HTML + JS shell",
+        why:"Asset egress ~150GB/mo against a hard $0 ceiling",
+        size:"Free plan, unlimited bandwidth, 20,000 files, 500 builds/mo",
         cost:"$0/mo",
-        ceiling:"500MB and ~60 connections. At 200MB/yr the storage limit is roughly three years out; the connection cap is what actually binds first, which is why pooling goes in on day one.",
-        rejected:"DynamoDB — the booking transaction spans classes and bookings and needs to be atomic, which is exactly where a key-value store makes you build your own machinery. Planetscale/Neon — equivalent, but Supabase bundles auth, which removes a whole component for a solo developer." },
-      { id:"email", kind:"external", col:2, row:2, label:"Resend", sub:"Transactional email",
-        why:"Booking confirmations and cancellation notices",
-        size:"Free tier, 3,000 emails/mo",
+        ceiling:"25 MiB per file — the single most important number in this design. Also 500 builds/month, roughly 16 deploys a day.",
+        rejected:"Vercel Hobby and Netlify free — both cap bandwidth at 100GB/mo against ~150GB projected, and Vercel Hobby additionally forbids commercial use. GitHub Pages — 100GB soft limit and awkward with large binaries in git." },
+      { id:"r2", kind:"data", col:1, row:1, label:"Cloudflare R2", sub:"Large game assets",
+        why:"Largest single file exceeds Pages' 25 MiB limit, and egress must cost nothing",
+        size:"Free tier: 10GB storage, 1M Class A ops, 10M Class B ops/mo",
         cost:"$0/mo",
-        ceiling:"3,000/mo free. At ~350/mo you have a decade of headroom.",
-        rejected:"SES — cheaper at volume, meaningfully more setup, and there is no volume here to be cheaper about." }
+        ceiling:"10GB storage — around 200 versions of a 50MB build. Class B reads cap at 10M/mo, which at ~5 files per load is roughly 2M sessions. Egress is free at any volume, so it never becomes the constraint.",
+        rejected:"S3 plus CloudFront — functionally equivalent and would cost real money on egress at 150GB/mo, which violates the $0 ceiling outright. Splitting assets under 25 MiB to stay on Pages alone — possible, but it fights the engine's export format for no gain when R2 is free." },
+      { id:"idb", kind:"data", col:1, row:2, label:"IndexedDB", sub:"On-device progress",
+        why:"Progress must persist between sessions with no backend to hold it",
+        size:"In-browser, typically hundreds of MB available",
+        cost:"$0",
+        ceiling:"Wiped when the player clears site data, and not shared across devices or browsers. This is the accepted cost of the no-backend decision, not an oversight.",
+        rejected:"localStorage — caps around 5-10MB and is synchronous, so a save blocks the main thread. In a 60fps game that is a visible dropped frame. IndexedDB is async and handles structured data properly." }
     ],
     edges: [
-      ["members","app","HTTPS"],
-      ["app","stripe","checkout"],
-      ["app","db","SQL"],
-      ["app","email","confirm"]
+      ["players","pages","load shell"],
+      ["players","r2","fetch assets"],
+      ["players","idb","save progress"]
     ]
   },
 
-  next: {
-    label: "When you outgrow it",
-    context: "~5,000 members",
-    cost: 45,
-    trigger: "Nothing here needs building until the trigger fires. This tier is documented, not built.",
-    scaledown: "Reverting is a plan change, not a migration — drop Supabase back to Free and you are at the previous tier.",
+  launch: {
+    label: "Launch — ~1,000 players",
+    context: "~1,000 players",
+    cost: 0,
+    trigger: "Still nothing to move up to. This design stays free well past 1,000 players — R2 egress is free at any volume, so the practical ceiling is Cloudflare's fair-use policy, which is far above anything 1,000 players generate.",
+    scaledown: "Nothing to scale down. There is no idle capacity being paid for, because there is no capacity being paid for.",
     costrows: [
-      ["Vercel",   "Pro plan",                        20],
-      ["Supabase", "Pro, 8GB Postgres, dedicated",    25],
-      ["Stripe",   "per-transaction",                  0],
-      ["Resend",   "Free tier still sufficient",       0]
+      ["Cloudflare Pages", "Free — unlimited bandwidth", 0],
+      ["Cloudflare R2",    "Free — 10GB, zero egress",   0]
     ],
     nodes: [
-      { id:"members", kind:"client", col:0, row:1, label:"Members + staff", sub:"~5,000 members",
-        why:"6x the member base",
-        size:"Browser, mobile web", cost:"$0",
-        ceiling:"n/a", rejected:"n/a" },
-      { id:"app", kind:"compute", col:1, row:1, label:"Next.js on Vercel", sub:"Unchanged",
-        why:"Read TPS ~50/s — still comfortably inside serverless economics",
-        size:"Vercel Pro, unchanged", cost:"$20/mo",
-        ceiling:"Same shape as before. Traffic is still spiky and still low.",
-        rejected:"Rearchitecting — nothing in the profile has changed shape, only magnitude." },
-      { id:"stripe", kind:"external", col:2, row:0, label:"Stripe Checkout", sub:"Hosted payment",
-        why:"Compliance: card data must never touch our servers",
-        size:"Hosted checkout", cost:"per-transaction",
-        ceiling:"Unchanged.", rejected:"n/a" },
-      { id:"pool", kind:"compute", col:2, row:1, label:"Connection pooler", sub:"Supavisor",
-        why:"Serverless function concurrency against a connection-limited Postgres — the classic failure mode of this exact stack",
-        size:"Supabase Supavisor, transaction mode", cost:"included",
-        ceiling:"Transaction-mode pooling disallows session-level features like prepared statements and LISTEN/NOTIFY. Check your ORM before switching.",
-        rejected:"Raising the connection cap — treats the symptom. Serverless concurrency is unbounded by design, so pooling is the actual answer." },
-      { id:"db", kind:"data", col:3, row:1, label:"Supabase Postgres", sub:"Pro, 8GB",
-        why:"Storage past the 500MB free-tier cap, plus dedicated compute",
-        size:"Pro plan, 8GB, dedicated compute", cost:"$25/mo",
-        ceiling:"8GB and far higher connection limits. On 200MB/yr growth this lasts effectively forever.",
-        rejected:"Self-hosting Postgres to save $25 — a solo developer's time is worth more than $25/mo." },
-      { id:"email", kind:"external", col:2, row:2, label:"Resend", sub:"Transactional email",
-        why:"Booking confirmations and cancellation notices",
-        size:"Free tier, 3,000 emails/mo", cost:"$0/mo",
-        ceiling:"~2,200/mo at this size, still inside the free tier.",
+      { id:"players", kind:"client", col:0, row:1, label:"Players", sub:"~1,000 players",
+        why:"~1,000 players, still one browser each",
+        size:"Browser with WebGL 2 and IndexedDB",
+        cost:"$0",
+        ceiling:"Unchanged. Player count creates no server load because there is no server.",
+        rejected:"n/a" },
+      { id:"pages", kind:"edge", col:1, row:0, label:"Cloudflare Pages", sub:"HTML + JS shell",
+        why:"Asset egress ~150GB/mo, still against a $0 ceiling",
+        size:"Free plan, unchanged",
+        cost:"$0/mo",
+        ceiling:"Unlimited bandwidth is subject to a fair-use policy that reportedly engages around 100TB/mo. At 150GB you are three orders of magnitude below it.",
+        rejected:"Paying for a plan you do not need — nothing at this volume asks you to." },
+      { id:"r2", kind:"data", col:1, row:1, label:"Cloudflare R2", sub:"Large game assets",
+        why:"Same oversized-file constraint, more traffic through it",
+        size:"Free tier: 10GB storage, ~15K Class B ops/mo used of 10M",
+        cost:"$0/mo",
+        ceiling:"Egress free at any volume. You would need roughly 200,000 players before Class B operations became chargeable.",
+        rejected:"n/a" },
+      { id:"idb", kind:"data", col:1, row:2, label:"IndexedDB", sub:"On-device progress",
+        why:"Progress persistence, unchanged",
+        size:"In-browser",
+        cost:"$0",
+        ceiling:"At 1,000 real players, support requests about lost progress become a genuine cost of this design. That is the pressure that eventually justifies a backend.",
         rejected:"n/a" }
     ],
     edges: [
-      ["members","app","HTTPS"],
-      ["app","stripe","checkout"],
-      ["app","pool","SQL"],
-      ["pool","db","pooled"],
-      ["app","email","confirm"]
+      ["players","pages","load shell"],
+      ["players","r2","fetch assets"],
+      ["players","idb","save progress"]
     ]
   }
 };

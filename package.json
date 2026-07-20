@@ -1,0 +1,22 @@
+{
+  "name": "stackreason",
+  "version": "1.0.0",
+  "description": "Interview-driven system design. Reason about your stack instead of reflexing into it.",
+  "license": "MIT",
+  "homepage": "https://github.com/ChiFungHillmanChan/stackreason",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChiFungHillmanChan/stackreason.git"
+  },
+  "keywords": [
+    "system-design",
+    "architecture",
+    "capacity-planning",
+    "ai-agent-skill"
+  ],
+  "scripts": {
+    "validate": "./scripts/validate-all.sh",
+    "check-links": "./scripts/check-links.sh"
+  },
+  "private": true
+}

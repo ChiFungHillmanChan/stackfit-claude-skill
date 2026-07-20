@@ -17,14 +17,14 @@ jobs:
           node-version: '20'
 
       - name: Validate the diagram template
-        run: node references/validate.js references/html-template.html
+        run: node skills/stackreason/references/validate.js skills/stackreason/references/html-template.html
 
       - name: Validate every worked example
         run: |
           status=0
           for f in examples/*.html; do
             echo "--- $f"
-            node references/validate.js "$f" || status=1
+            node skills/stackreason/references/validate.js "$f" || status=1
           done
           exit $status
 
@@ -35,7 +35,7 @@ jobs:
           set -e
           src=examples/small-booking-app-design.html
           check() {
-            if node references/validate.js "$1" >/dev/null 2>&1; then
+            if node skills/stackreason/references/validate.js "$1" >/dev/null 2>&1; then
               echo "FAIL: validator accepted a file with $2"
               exit 1
             fi
@@ -54,7 +54,7 @@ jobs:
         run: |
           # The whole point is that these open offline. Any external reference
           # breaks that promise.
-          if grep -rnE '(src|href)="https?://' examples/*.html references/html-template.html; then
+          if grep -rnE '(src|href)="https?://' examples/*.html skills/stackreason/references/html-template.html; then
             echo "FAIL: external reference found in a generated page"
             exit 1
           fi
