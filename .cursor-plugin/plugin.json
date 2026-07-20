@@ -1,0 +1,20 @@
+{
+  "name": "stackreason",
+  "displayName": "stackreason",
+  "description": "Interview-driven system design. Reason about your stack instead of reflexing into it.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Hillman Chan"
+  },
+  "homepage": "https://github.com/ChiFungHillmanChan/stackreason",
+  "repository": "https://github.com/ChiFungHillmanChan/stackreason",
+  "license": "MIT",
+  "keywords": [
+    "system-design",
+    "architecture",
+    "capacity-planning",
+    "cost-estimation",
+    "interview-prep"
+  ],
+  "skills": "./skills/"
+}

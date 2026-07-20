@@ -1,0 +1,6 @@
+{
+  "name": "stackreason",
+  "description": "Interview-driven system design: reason about your stack instead of reflexing into it.",
+  "version": "1.0.0",
+  "contextFileName": "GEMINI.md"
+}

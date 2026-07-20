@@ -1,0 +1,47 @@
+{
+  "name": "stackreason",
+  "version": "1.0.0",
+  "description": "Interview-driven system design. Reason about your stack instead of reflexing into it, then emit an interactive architecture diagram and a buildable spec.",
+  "author": {
+    "name": "Hillman Chan",
+    "url": "https://github.com/ChiFungHillmanChan"
+  },
+  "homepage": "https://github.com/ChiFungHillmanChan/stackreason",
+  "repository": "https://github.com/ChiFungHillmanChan/stackreason",
+  "license": "MIT",
+  "keywords": [
+    "system-design",
+    "architecture",
+    "capacity-planning",
+    "cost-estimation",
+    "database-selection",
+    "interview-prep",
+    "diagrams"
+  ],
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "stackreason",
+    "shortDescription": "System design that makes every component justify itself",
+    "longDescription": "Interviews you about what you are actually building, reasons from access patterns rather than preferences, requires every component to cite the requirement it serves, and emits an interactive architecture diagram plus a spec another agent can build from. Also audits existing architectures, estimates capacity and cost, and drills system design interviews.",
+    "developerName": "Hillman Chan",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Help me design the architecture for something I'm about to build.",
+      "Review the architecture of this project and tell me what breaks first.",
+      "What would 100k users cost me on this stack?"
+    ],
+    "websiteURL": "https://github.com/ChiFungHillmanChan/stackreason",
+    "privacyPolicyURL": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
+    "termsOfServiceURL": "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+    "brandColor": "#2B6CB0",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}
