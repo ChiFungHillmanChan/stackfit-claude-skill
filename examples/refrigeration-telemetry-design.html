@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ColdChain — Refrigeration Fleet Telemetry</title>
+<style>
+  :root {
+    --bg: #fbfbfa;      --panel: #ffffff;   --ink: #1a1a18;
+    --muted: #6b6b66;   --line: #e2e2dd;    --accent: #2b6cb0;
+    --client: #64748b;  --edge-c: #7c3aed;  --compute: #2b6cb0;
+    --data: #047857;    --cache: #b45309;   --queue: #be123c;  --external: #57534e;
+    --ok: #047857;      --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;    --panel: #1f1f24;   --ink: #ececea;
+      --muted: #9a9a94; --line: #33333a;    --accent: #7aa7d9;
+      --client: #94a3b8; --edge-c: #a78bfa; --compute: #7aa7d9;
+      --data: #34d399;  --cache: #fbbf24;   --queue: #fb7185;  --external: #a8a29e;
+      --ok: #34d399;    --warn: #fbbf24;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfbfa;      --panel: #ffffff;   --ink: #1a1a18;
+    --muted: #6b6b66;   --line: #e2e2dd;    --accent: #2b6cb0;
+    --client: #64748b;  --edge-c: #7c3aed;  --compute: #2b6cb0;
+    --data: #047857;    --cache: #b45309;   --queue: #be123c;  --external: #57534e;
+    --ok: #047857;      --warn: #b45309;
+  }
+  :root[data-theme="dark"] {
+    --bg: #16161a;      --panel: #1f1f24;   --ink: #ececea;
+    --muted: #9a9a94;   --line: #33333a;    --accent: #7aa7d9;
+    --client: #94a3b8;  --edge-c: #a78bfa;  --compute: #7aa7d9;
+    --data: #34d399;    --cache: #fbbf24;   --queue: #fb7185;  --external: #a8a29e;
+    --ok: #34d399;      --warn: #fbbf24;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 24px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0; }
+
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--muted); margin: 40px 0 14px; font-weight: 600; }
+
+  /* Profile table */
+  .profile { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .profile td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .profile td:first-child { color: var(--muted); width: 170px; white-space: nowrap; }
+  .profile td:nth-child(2) { font-weight: 600; width: 150px; }
+  .assumed { color: var(--warn); font-size: 12.5px; font-style: italic; }
+
+  /* Tier tabs */
+  .tierbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+             margin-bottom: 6px; }
+  .tabs { display: flex; gap: 4px; background: var(--panel);
+          border: 1px solid var(--line); border-radius: 9px; padding: 4px; }
+  .tab { border: 0; background: transparent; color: var(--muted); cursor: pointer;
+         padding: 7px 15px; border-radius: 6px; font: inherit; font-size: 14px;
+         font-weight: 500; }
+  .tab[aria-selected="true"] { background: var(--accent); color: #fff; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cost { margin-left: auto; font-size: 19px; font-weight: 650; }
+  .cost span { font-size: 13px; color: var(--muted); font-weight: 400; }
+
+  /* Diagram */
+  .stage { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 11px; padding: 8px; overflow-x: auto; }
+  .stage svg { display: block; min-width: 640px; }
+  .node rect { transition: opacity .12s; }
+  .node { cursor: pointer; }
+  .node:hover rect { opacity: .82; }
+  .node:focus-visible rect { stroke: var(--ink); stroke-width: 2.5; }
+  .nlabel { font: 600 13px ui-sans-serif, sans-serif; fill: #fff; }
+  .nsub   { font: 11px ui-sans-serif, sans-serif; fill: rgba(255,255,255,.82); }
+  .elabel { font: 10.5px ui-sans-serif, sans-serif; fill: var(--muted); }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 8px 2px 0; }
+
+  /* Detail panel */
+  .detail { margin-top: 14px; background: var(--panel); border: 1px solid var(--line);
+            border-left: 3px solid var(--accent); border-radius: 9px; padding: 16px 18px; }
+  .detail.empty { border-left-color: var(--line); color: var(--muted); }
+  .detail h3 { margin: 0 0 3px; font-size: 17px; }
+  .detail .kind { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+  .dgrid { display: grid; grid-template-columns: 128px 1fr; gap: 8px 14px; font-size: 14px; }
+  .dgrid dt { color: var(--muted); }
+  .dgrid dd { margin: 0; }
+  .dgrid dd.why { border-left: 2px solid var(--ok); padding-left: 9px; }
+  .dgrid dd.ceil { border-left: 2px solid var(--warn); padding-left: 9px; }
+
+  /* Tier meta */
+  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 12px; margin-top: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 9px; padding: 14px 16px; }
+  .card h4 { margin: 0 0 7px; font-size: 12px; text-transform: uppercase;
+             letter-spacing: .07em; color: var(--muted); }
+  .card p { margin: 0; font-size: 14px; }
+
+  /* Cost table */
+  .costtable { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  .costtable th { text-align: left; font-size: 11.5px; text-transform: uppercase;
+                  letter-spacing: .06em; color: var(--muted); padding: 6px 10px;
+                  border-bottom: 1px solid var(--line); font-weight: 600; }
+  .costtable td { padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  .costtable td:last-child, .costtable th:last-child { text-align: right;
+                  font-variant-numeric: tabular-nums; }
+  .costtable tr:last-child td { font-weight: 650; border-bottom: 0; }
+
+  /* Checklist */
+  ol.check { padding-left: 0; list-style: none; counter-reset: c; margin: 0; }
+  ol.check li { counter-increment: c; position: relative; padding: 9px 0 9px 38px;
+                border-bottom: 1px solid var(--line); font-size: 14px; }
+  ol.check li::before {
+    content: counter(c); position: absolute; left: 0; top: 9px;
+    width: 24px; height: 24px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 12px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  ol.check li:last-child { border-bottom: 0; }
+
+  footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>SYSTEM_NAME</h1>
+  <p class="sub">Architecture and scaling plan. Generated by stackfit. Prices checked DATE_CHECKED.</p>
+</header>
+
+<h2>Requirements profile</h2>
+<table class="profile">
+  <tbody id="profile"></tbody>
+</table>
+
+<h2>Architecture</h2>
+<div class="tierbar">
+  <div class="tabs" role="tablist" aria-label="Scale tier">
+    <button class="tab" role="tab" data-tier="mvp"    aria-selected="true">MVP</button>
+    <button class="tab" role="tab" data-tier="growth" aria-selected="false">Growth</button>
+    <button class="tab" role="tab" data-tier="scale"  aria-selected="false">Scale</button>
+  </div>
+  <div class="cost"><span id="costctx"></span> <strong id="costnum"></strong> <span>/mo</span></div>
+</div>
+
+<div class="stage"><svg id="svg" role="img" aria-label="Architecture diagram"></svg></div>
+<p class="hint">Click any component for why it was chosen, what it costs, and what breaks first.</p>
+
+<div class="detail empty" id="detail">Select a component in the diagram above.</div>
+
+<div class="meta">
+  <div class="card"><h4>Move up when</h4><p id="trigger"></p></div>
+  <div class="card"><h4>Scale down</h4><p id="scaledown"></p></div>
+</div>
+
+<h2>Cost breakdown</h2>
+<table class="costtable">
+  <thead><tr><th>Service</th><th>Size</th><th>Monthly</th></tr></thead>
+  <tbody id="costrows"></tbody>
+</table>
+
+<h2>Start here</h2>
+<ol class="check" id="checklist"></ol>
+
+<footer id="foot"></footer>
+
+</div>
+
+<script>
+/* ============================================================================
+   DATA — the skill replaces everything between these markers.
+   Example content below is a placeholder; it renders so the template can be
+   verified standalone.
+   ========================================================================= */
+
+const SYSTEM = {
+  name: "ColdChain — Refrigeration Fleet Telemetry",
+  checked: "2026-07-20",
+  profile: [
+    ["Write TPS",      "400/s sustained", "12,000 units x 1 reading/30s — constant, not spiky"],
+    ["Peak write TPS", "1,200/s",         "3x on reconnect storm after a network drop"],
+    ["Read TPS",       "~25/s",           "200 concurrent staff, dashboard refresh every 10s"],
+    ["Ingest p99",     "1s",              "not user-facing; batching is acceptable"],
+    ["Alert latency",  "30s end-to-end",  null],
+    ["Dashboard p99",  "300ms",           "interactive UI"],
+    ["Availability",   "99.9%",           "43min/mo — an alerting gap is the real cost, not UI downtime"],
+    ["Durability",     "No reading lost once acknowledged", null],
+    ["Data volume",    "820GB/yr raw, ~55GB compressed", "34.6M rows/day x 65B, 15x columnar compression"],
+    ["Retention",      "2 years hot-queryable", "HACCP audit window"],
+    ["Budget",         "$1,200/mo",       null],
+    ["Compliance",     "Food-safety audit records; no PII beyond staff email", null],
+    ["Team size",      "3",               "small team, ops burden matters"]
+  ],
+  checklist: [
+    "Flash device firmware to batch 10 readings per MQTT publish on a 5-minute interval. This single change is the difference between $104/mo and $1,037/mo in IoT Core messaging — do it before onboarding any fleet.",
+    "Create the AWS IoT Core thing type and policy. Register each unit by serial with its own certificate; never share a credential across the fleet.",
+    "Provision Tiger Cloud (Timescale) Scale plan at 4 vCPU / 16GB. Create the readings hypertable with a 1-day chunk interval before the first row lands.",
+    "Enable native compression on readings with segmentby unit_id, orderby time DESC, and a compression policy at 7 days. Skipping this multiplies storage cost by roughly 15x.",
+    "Create the readings_5min continuous aggregate and the excursion detection view. Alerting reads the aggregate, never the raw hypertable.",
+    "Deploy the ingest worker with a local disk buffer sized for 15 minutes of readings, so a database restart does not violate the durability requirement.",
+    "Deploy the alert evaluator on a 15s tick. Wire SNS for email and Twilio for SMS escalation.",
+    "Set the tiered-storage policy to move chunks older than 90 days to object storage, retaining 2 years for audit.",
+    "Add one alert on the pipeline itself: ingest lag above 60 seconds. A monitoring system that fails silently is worse than no monitoring system."
+  ]
+};
+
+const TIERS = {
+  mvp: {
+    label: "MVP",
+    context: "12,000 units",
+    cost: 500,
+    trigger: "Move to Growth when sustained write TPS passes 800/s, or ingest lag exceeds 60s during a reconnect storm, or the disk buffer fills before the database recovers.",
+    scaledown: "Off-season the fleet idles rather than shrinking, so compute cannot drop much. Real saving comes from widening the device batch to 15 minutes: about $70/mo less in IoT Core messaging, at the cost of coarser alert granularity.",
+    costrows: [
+      ["AWS IoT Core",    "103.7M batched msgs + 12k device connections", 146],
+      ["Ingest worker",   "Fly, 2x shared-cpu-2x 1GB",                     25],
+      ["Tiger Cloud",     "Scale, 4vCPU/16GB, ~30GB avg",                 265],
+      ["Alert evaluator", "Fly, 1x shared-cpu-1x",                         12],
+      ["Dashboard",       "Fly, 2x shared-cpu-1x",                         18],
+      ["SNS + Twilio",    "alert delivery, ~2k msgs/mo",                   34]
+    ],
+    nodes: [
+      { id:"devices", kind:"client", col:0, row:1, label:"Refrigeration units", sub:"12,000 sensors",
+        why:"Write TPS 400/s sustained from 12,000 units at 1 reading per 30s",
+        size:"MQTT over cellular, batched 10 readings per publish",
+        cost:"hardware, not recurring",
+        ceiling:"Cellular links drop. Firmware must buffer locally and replay, or the durability requirement fails at the edge.",
+        rejected:"HTTPS POST per reading — 3x the bytes and no offline queueing on flaky cellular." },
+      { id:"iot", kind:"edge", col:1, row:1, label:"AWS IoT Core", sub:"MQTT broker",
+        why:"Devices speak MQTT over intermittent cellular; needs per-device auth and offline tolerance",
+        size:"103.7M messages/mo, 12,000 connections",
+        cost:"$146/mo",
+        ceiling:"Messaging cost scales linearly with publish count. Unbatched at 30s this line alone is $1,037/mo — 86% of total budget.",
+        rejected:"Self-hosted EMQX — about $60/mo flat and cheaper past ~400M msgs, but it adds broker ops that a team of 3 should not carry at this size." },
+      { id:"ingest", kind:"compute", col:2, row:1, label:"Ingest worker", sub:"Fly, 2 machines",
+        why:"Write TPS 400/s sustained — steady load, and a disk buffer is required for no-data-loss",
+        size:"2x shared-cpu-2x, 1GB, 15-min disk buffer",
+        cost:"$25/mo",
+        ceiling:"~1,500 rows/s per machine using batched COPY. Buffer holds 15 min; a longer database outage loses readings, which is why Growth adds a durable queue.",
+        rejected:"Lambda — sustained 400/s is the worst case for per-invocation pricing, and serverless has nowhere to hold the buffer the durability line demands." },
+      { id:"tsdb", kind:"data", col:3, row:1, label:"TimescaleDB", sub:"Tiger Cloud 4vCPU",
+        why:"820GB/yr raw at 400 writes/s, plus 2-year hot-queryable retention for audit",
+        size:"Scale plan, 4vCPU/16GB, hypertable with 1-day chunks",
+        cost:"$265/mo",
+        ceiling:"~2,500 write rows/s on this instance. Compression must be enabled at 7 days or storage grows 15x and the budget breaks by month 4.",
+        rejected:"Plain RDS Postgres — no columnar compression or continuous aggregates, so 820GB/yr uncompressed and every dashboard query scans raw rows. DynamoDB — the audit queries are analytical time-range scans, which is its weakest access pattern." },
+      { id:"alerts", kind:"compute", col:4, row:0, label:"Alert evaluator", sub:"15s tick",
+        why:"Alert latency 30s end-to-end for food-safety excursions",
+        size:"Fly, 1x shared-cpu-1x, polls the 5-min continuous aggregate",
+        cost:"$12/mo",
+        ceiling:"Polling the raw hypertable instead of the aggregate would miss the 30s budget once chunks pass ~50M rows.",
+        rejected:"Database triggers — excursion rules are per-tenant and change often; keeping them in application code avoids a migration for every rule edit." },
+      { id:"notify", kind:"external", col:5, row:0, label:"SNS + Twilio", sub:"Email + SMS",
+        why:"Alert latency 30s requires push delivery, not staff watching a dashboard",
+        size:"~2,000 messages/mo",
+        cost:"$34/mo",
+        ceiling:"SMS cost scales with excursion count. A sensor stuck in a fault loop can page repeatedly — deduplicate before sending.",
+        rejected:"Email only — 30s to a phone is the requirement, and email delivery is not reliable enough to meet it." },
+      { id:"dash", kind:"compute", col:4, row:1, label:"Dashboard", sub:"Fly, 2 machines",
+        why:"600 staff at 25 read TPS, dashboard p99 300ms",
+        size:"2x shared-cpu-1x, reads current-state table",
+        cost:"$18/mo",
+        ceiling:"Current-state table is 12,000 rows and serves fine from Postgres. Add a cache only when read TPS or tenant fan-out grows, not before.",
+        rejected:"Redis at this tier — a 12,000-row current-state table is already fast, so a cache would buy an invalidation bug surface for no measured gain. Vercel — the read plane is one container alongside the evaluator; a second deploy target adds a vendor for no benefit." }
+    ],
+    edges: [
+      ["devices","iot","MQTT"],
+      ["iot","ingest","rule"],
+      ["ingest","tsdb","COPY"],
+      ["tsdb","alerts","poll"],
+      ["alerts","notify","page"],
+      ["tsdb","dash","query"]
+    ]
+  },
+
+  growth: {
+    label: "Growth",
+    context: "50,000 units",
+    cost: 1759,
+    trigger: "Move to Scale when IoT Core messaging alone passes $500/mo, or write TPS passes 3,000/s, or a single Timescale writer saturates during reconnect storms.",
+    scaledown: "Kinesis is on-demand and follows traffic. Dropping the read replica and Redis when off-season concurrency falls saves about $315/mo without changing the ingest path.",
+    costrows: [
+      ["AWS IoT Core",    "432M msgs + 50k connections",     564],
+      ["Kinesis",         "on-demand, ~170 batches/s",        95],
+      ["Ingest workers",  "Fly, 3x shared-cpu-2x",            60],
+      ["Tiger Cloud",     "Scale, 8vCPU/32GB, ~120GB",       540],
+      ["Read replica",    "8vCPU/32GB",                      270],
+      ["Redis",           "Upstash 2GB",                      45],
+      ["Alert evaluator", "Fly, 2x",                          25],
+      ["Dashboard",       "Fly, 3x",                          40],
+      ["SNS + Twilio",    "~9k msgs/mo",                     120]
+    ],
+    nodes: [
+      { id:"devices", kind:"client", col:0, row:1, label:"Refrigeration units", sub:"50,000 sensors",
+        why:"Write TPS 1,667/s at 50,000 units",
+        size:"MQTT, batched 10 readings per publish",
+        cost:"hardware, not recurring",
+        ceiling:"Fleet-wide firmware rollout becomes a multi-week operation at this size. Version the message schema before you need to.",
+        rejected:"n/a" },
+      { id:"iot", kind:"edge", col:1, row:1, label:"AWS IoT Core", sub:"MQTT broker",
+        why:"Same MQTT ingress requirement, 4x the fleet",
+        size:"432M messages/mo, 50,000 connections",
+        cost:"$564/mo",
+        ceiling:"This is the line that forces the Scale tier. Past roughly $500/mo, self-hosted EMQX pays for its own ops burden.",
+        rejected:"Migrating to EMQX now — the switch costs a fleet-wide reconfiguration, so it is deferred until the saving clearly exceeds the disruption." },
+      { id:"kinesis", kind:"queue", col:2, row:1, label:"Kinesis", sub:"Durable buffer",
+        why:"Durability: no reading lost once acknowledged, and a 15-min disk buffer no longer covers maintenance windows",
+        size:"On-demand, ~170 batched records/s",
+        cost:"$95/mo",
+        ceiling:"24h retention by default. Consumers must keep up or data ages out; alert on iterator age, not consumer count.",
+        rejected:"Larger disk buffers on the workers — that scales the problem rather than solving it, and loses data whenever a worker itself is replaced." },
+      { id:"ingest", kind:"compute", col:3, row:1, label:"Ingest workers", sub:"Fly, 3 machines",
+        why:"Write TPS 1,667/s sustained",
+        size:"3x shared-cpu-2x, consuming from Kinesis",
+        cost:"$60/mo",
+        ceiling:"Scale with shard count, not machine size. One consumer per shard is the cap.",
+        rejected:"Fargate — roughly 2x the cost for the same throughput at this size." },
+      { id:"redis", kind:"cache", col:4, row:0, label:"Redis", sub:"Current state",
+        why:"Read TPS with 50,000 units now makes the current-state table a hot row-contention point",
+        size:"Upstash 2GB, one key per unit",
+        cost:"$45/mo",
+        ceiling:"Memory-bound. 50,000 units at ~200 bytes is trivial; the constraint is write amplification from every reading touching a key.",
+        rejected:"Keeping the Postgres current-state table — at 50,000 units the per-reading UPDATE competes with the ingest path for the same write locks." },
+      { id:"tsdb", kind:"data", col:4, row:1, label:"TimescaleDB", sub:"Primary 8vCPU",
+        why:"Write TPS 1,667/s plus 2-year retention on a 4x larger fleet",
+        size:"Scale plan, 8vCPU/32GB, ~120GB compressed",
+        cost:"$540/mo",
+        ceiling:"Single writer. Past ~3,000 rows/s the next step is partitioning by tenant or moving analytics to a columnar store.",
+        rejected:"Sharding now — premature while a single writer still has headroom, and it complicates the audit queries that must span tenants." },
+      { id:"replica", kind:"data", col:4, row:2, label:"Read replica", sub:"Dashboard + audit",
+        why:"Availability 99.9% needs a failover target, and audit exports must not compete with ingest",
+        size:"8vCPU/32GB",
+        cost:"$270/mo",
+        ceiling:"Replication lag rises during compression jobs. Alerting must never read the replica; audit exports may.",
+        rejected:"Serving dashboards from the primary — a heavy audit export would then stall ingest, risking the durability line." },
+      { id:"alerts", kind:"compute", col:5, row:0, label:"Alert evaluator", sub:"15s tick",
+        why:"Alert latency 30s end-to-end, now across 50,000 units",
+        size:"Fly, 2x, reads continuous aggregate",
+        cost:"$25/mo",
+        ceiling:"Evaluation time grows with rule count x unit count. Partition evaluation by tenant before it exceeds the tick interval.",
+        rejected:"n/a" },
+      { id:"notify", kind:"external", col:6, row:0, label:"SNS + Twilio", sub:"Email + SMS",
+        why:"Alert latency 30s requires push delivery",
+        size:"~9,000 messages/mo",
+        cost:"$120/mo",
+        ceiling:"Cost scales with excursion count, not fleet size. Deduplication and escalation policies matter more than throughput here.",
+        rejected:"n/a" },
+      { id:"dash", kind:"compute", col:5, row:1, label:"Dashboard", sub:"Fly, 3 machines",
+        why:"Dashboard p99 300ms with more concurrent staff",
+        size:"3x shared-cpu-1x",
+        cost:"$40/mo",
+        ceiling:"~1,200 req/s aggregate. Reads current state from Redis and history from the replica.",
+        rejected:"n/a" }
+    ],
+    edges: [
+      ["devices","iot","MQTT"],
+      ["iot","kinesis","rule"],
+      ["kinesis","ingest","consume"],
+      ["ingest","tsdb","COPY"],
+      ["ingest","redis","current"],
+      ["tsdb","replica","stream"],
+      ["tsdb","alerts","poll"],
+      ["alerts","notify","page"],
+      ["redis","dash","state"],
+      ["replica","dash","history"]
+    ]
+  },
+
+  scale: {
+    label: "Scale",
+    context: "200,000 units",
+    cost: 4235,
+    trigger: "Past this tier the constraint depends on which dimension actually broke. Re-run the interview with measured numbers rather than extending this diagram.",
+    scaledown: "EMQX and Kafka are fixed-cost and do not shrink. Ingest workers and the alert evaluator scale with queue depth, recovering roughly $340/mo off-peak.",
+    costrows: [
+      ["EMQX cluster",    "3x dedicated VPS",            420],
+      ["Kafka (MSK)",     "3 brokers",                   650],
+      ["Ingest workers",  "ECS, 6 tasks",                290],
+      ["Tiger Cloud",     "16vCPU/64GB, ~500GB",        1340],
+      ["Read replica",    "16vCPU/64GB",                 670],
+      ["Redis",           "ElastiCache HA",              160],
+      ["S3 + Athena",     "Parquet audit archive",        95],
+      ["Alert evaluator", "ECS, partitioned by tenant",   80],
+      ["Dashboard",       "ECS, 4 tasks",                110],
+      ["SNS + Twilio",    "~35k msgs/mo",                420]
+    ],
+    nodes: [
+      { id:"devices", kind:"client", col:0, row:1, label:"Refrigeration units", sub:"200,000 sensors",
+        why:"Write TPS 6,667/s at 200,000 units",
+        size:"MQTT, batched",
+        cost:"hardware, not recurring",
+        ceiling:"Certificate rotation across 200,000 devices is now a standing operational process, not a one-off task.",
+        rejected:"n/a" },
+      { id:"emqx", kind:"edge", col:1, row:1, label:"EMQX cluster", sub:"Self-hosted MQTT",
+        why:"IoT Core messaging would exceed $1,700/mo at this publish volume; EMQX is flat-cost",
+        size:"3x dedicated VPS, clustered",
+        cost:"$420/mo",
+        ceiling:"You now own broker uptime. This trade only makes sense with dedicated ops capacity, which a team of 3 did not have at MVP.",
+        rejected:"Staying on IoT Core — roughly $1,300/mo more for the same function once the fleet passes 200k units." },
+      { id:"kafka", kind:"queue", col:2, row:1, label:"Kafka", sub:"MSK, 3 brokers",
+        why:"Durability at 6,667/s plus replay for audit reconstruction",
+        size:"3 brokers, 7-day retention",
+        cost:"$650/mo",
+        ceiling:"Partition count sets consumer parallelism and cannot be lowered later. Size it deliberately.",
+        rejected:"Kinesis — shard management at this rate costs more than MSK, and replay windows are shorter than audit reconstruction needs." },
+      { id:"ingest", kind:"compute", col:3, row:1, label:"Ingest workers", sub:"ECS, 6 tasks",
+        why:"Write TPS 6,667/s sustained",
+        size:"Fargate 1vCPU/2GB x6",
+        cost:"$290/mo",
+        ceiling:"One consumer per partition. Scale partitions and tasks together.",
+        rejected:"Fly — ECS matches the rest of the AWS footprint at this tier." },
+      { id:"archive", kind:"data", col:3, row:2, label:"S3 + Athena", sub:"Parquet audit",
+        why:"2-year retention for audit, where most data is never queried interactively",
+        size:"Parquet, partitioned by tenant and month",
+        cost:"$95/mo",
+        ceiling:"Athena charges per byte scanned. Partition correctly or a single careless audit query costs more than the month's storage.",
+        rejected:"Keeping all 2 years hot in Timescale — roughly 5x the storage cost for data that is read a few times a year." },
+      { id:"redis", kind:"cache", col:4, row:0, label:"Redis", sub:"ElastiCache HA",
+        why:"Current-state reads for 200,000 units at dashboard p99 300ms",
+        size:"cache.t4g.medium, 2 nodes",
+        cost:"$160/mo",
+        ceiling:"Failover takes seconds. The dashboard must degrade to the replica rather than stampede on a cold cache.",
+        rejected:"Upstash — HA and VPC-local latency favor ElastiCache once fully inside AWS." },
+      { id:"tsdb", kind:"data", col:4, row:1, label:"TimescaleDB", sub:"Primary 16vCPU",
+        why:"Write TPS 6,667/s with 90 days hot before tiering to S3",
+        size:"16vCPU/64GB, ~500GB compressed",
+        cost:"$1,340/mo",
+        ceiling:"Single writer, near its limit. The next step is partitioning by tenant or moving analytics to ClickHouse.",
+        rejected:"ClickHouse — better for the analytical half, but it would mean running two datastores and rewriting the alerting path." },
+      { id:"replica", kind:"data", col:4, row:2, label:"Read replica", sub:"Dashboard",
+        why:"Availability 99.9% failover plus dashboard history reads",
+        size:"16vCPU/64GB",
+        cost:"$670/mo",
+        ceiling:"Add a second replica when read CPU sustains above 60%.",
+        rejected:"n/a" },
+      { id:"alerts", kind:"compute", col:5, row:0, label:"Alert evaluator", sub:"Per-tenant shards",
+        why:"Alert latency 30s across 200,000 units and thousands of rules",
+        size:"ECS, partitioned by tenant",
+        cost:"$80/mo",
+        ceiling:"Evaluation must stay under the tick interval. Shard by tenant and alert on evaluation lag itself.",
+        rejected:"Single evaluator — rule count x unit count exceeds a 15s tick well before this fleet size." },
+      { id:"notify", kind:"external", col:6, row:0, label:"SNS + Twilio", sub:"Email + SMS",
+        why:"Alert latency 30s requires push delivery",
+        size:"~35,000 messages/mo",
+        cost:"$420/mo",
+        ceiling:"Now a material cost line. Escalation policies and deduplication directly control spend.",
+        rejected:"n/a" },
+      { id:"dash", kind:"compute", col:5, row:1, label:"Dashboard", sub:"ECS, 4 tasks",
+        why:"Dashboard p99 300ms at full staff concurrency",
+        size:"Fargate 1vCPU/2GB x4",
+        cost:"$110/mo",
+        ceiling:"Reads current state from Redis, history from the replica, audit from Athena.",
+        rejected:"n/a" }
+    ],
+    edges: [
+      ["devices","emqx","MQTT"],
+      ["emqx","kafka","publish"],
+      ["kafka","ingest","consume"],
+      ["ingest","tsdb","COPY"],
+      ["ingest","archive","parquet"],
+      ["ingest","redis","current"],
+      ["tsdb","replica","stream"],
+      ["tsdb","alerts","poll"],
+      ["alerts","notify","page"],
+      ["redis","dash","state"],
+      ["replica","dash","history"]
+    ]
+  }
+};
+
+/* ============================================================================
+   END DATA — do not edit below this line.
+   ========================================================================= */
+
+const NW = 152, NH = 62, GX = 214, GY = 104, PAD = 26;
+const KIND = { client:"--client", edge:"--edge-c", compute:"--compute",
+               data:"--data", cache:"--cache", queue:"--queue", external:"--external" };
+
+const el = id => document.getElementById(id);
+// Uses normalized _c/_r so authors may number rows/cols from any origin
+// without leaving empty bands in the diagram.
+const px = n => ({ x: PAD + n._c * GX, y: PAD + n._r * GY });
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+function elbow(a, b) {
+  const p = px(a), q = px(b);
+  const ay = p.y + NH / 2, by = q.y + NH / 2;
+  const fwd = q.x >= p.x + NW;
+  if (Math.abs(ay - by) < 4 && fwd)
+    return { d: `M${p.x + NW} ${ay} H${q.x - 8}`, lx: (p.x + NW + q.x) / 2, ly: ay - 7 };
+  if (fwd) {
+    const mx = p.x + NW + (q.x - p.x - NW) / 2;
+    return { d: `M${p.x + NW} ${ay} H${mx} V${by} H${q.x - 8}`, lx: mx + 6, ly: (ay + by) / 2 - 5 };
+  }
+  // same column or backward: route vertically between stacked nodes
+  const cx = p.x + NW / 2;
+  const dir = by > ay ? 1 : -1;
+  return { d: `M${cx} ${ay + dir * NH / 2} V${by - dir * (NH / 2 + 8)}`, lx: cx + 7, ly: (ay + by) / 2 };
+}
+
+function renderTier(key) {
+  const t = TIERS[key];
+  const byId = Object.fromEntries(t.nodes.map(n => [n.id, n]));
+
+  // Normalize to a zero origin so unused leading rows/cols collapse
+  const minC = Math.min(...t.nodes.map(n => n.col));
+  const minR = Math.min(...t.nodes.map(n => n.row));
+  t.nodes.forEach(n => { n._c = n.col - minC; n._r = n.row - minR; });
+
+  const cols = Math.max(...t.nodes.map(n => n._c)) + 1;
+  const rows = Math.max(...t.nodes.map(n => n._r)) + 1;
+  const W = PAD * 2 + cols * GX - (GX - NW);
+  const H = PAD * 2 + rows * GY - (GY - NH);
+
+  let s = `<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5"
+    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0 0 L10 5 L0 10 z" fill="var(--line)"/></marker></defs>`;
+
+  for (const [from, to, label] of t.edges) {
+    const a = byId[from], b = byId[to];
+    if (!a || !b) continue;
+    const e = elbow(a, b);
+    s += `<path d="${e.d}" fill="none" stroke="var(--line)" stroke-width="1.8"
+           marker-end="url(#ah)"/>`;
+    if (label) s += `<text class="elabel" x="${e.lx}" y="${e.ly}"
+           text-anchor="middle">${esc(label)}</text>`;
+  }
+
+  for (const n of t.nodes) {
+    const p = px(n), c = `var(${KIND[n.kind] || "--external"})`;
+    s += `<g class="node" data-id="${esc(n.id)}" tabindex="0" role="button"
+            aria-label="${esc(n.label)} details">
+      <rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="9" fill="${c}"/>
+      <text class="nlabel" x="${p.x + 14}" y="${p.y + 26}">${esc(n.label)}</text>
+      <text class="nsub"   x="${p.x + 14}" y="${p.y + 44}">${esc(n.sub || "")}</text>
+    </g>`;
+  }
+
+  const svg = el("svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  // Scale down to fit the container rather than forcing a horizontal scroll —
+  // SVG loses nothing when shrunk, and a diagram you must scroll to read is
+  // not a clear diagram. min-width in CSS still allows scrolling on phones.
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.style.width = "100%";
+  svg.style.maxWidth = W + "px";
+  svg.style.height = "auto";
+  svg.innerHTML = s;
+
+  svg.querySelectorAll(".node").forEach(g => {
+    const show = () => showDetail(byId[g.dataset.id]);
+    g.addEventListener("click", show);
+    g.addEventListener("keydown", ev => {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); show(); }
+    });
+  });
+
+  el("costnum").textContent = "$" + t.cost.toLocaleString();
+  el("costctx").textContent = t.context;
+  el("trigger").textContent = t.trigger;
+  el("scaledown").textContent = t.scaledown;
+
+  el("costrows").innerHTML = t.costrows.map(([svc, size, amt]) =>
+    `<tr><td>${esc(svc)}</td><td>${esc(size)}</td><td>$${amt}</td></tr>`
+  ).join("") + `<tr><td>Total</td><td></td><td>$${t.cost}</td></tr>`;
+
+  el("detail").className = "detail empty";
+  el("detail").textContent = "Select a component in the diagram above.";
+}
+
+function showDetail(n) {
+  if (!n) return;
+  el("detail").className = "detail";
+  el("detail").innerHTML = `
+    <h3>${esc(n.label)}</h3>
+    <p class="kind">${esc(n.sub || "")} — ${esc(n.kind)}</p>
+    <dl class="dgrid">
+      <dt>Justified by</dt><dd class="why">${esc(n.why)}</dd>
+      <dt>Size</dt><dd>${esc(n.size)}</dd>
+      <dt>Cost</dt><dd>${esc(n.cost)}</dd>
+      <dt>Breaks at</dt><dd class="ceil">${esc(n.ceiling)}</dd>
+      <dt>Rejected</dt><dd>${esc(n.rejected)}</dd>
+    </dl>`;
+}
+
+el("profile").innerHTML = SYSTEM.profile.map(([k, v, a]) =>
+  `<tr><td>${esc(k)}</td><td>${esc(v)}</td>
+   <td class="assumed">${a ? "[assumed: " + esc(a) + "]" : ""}</td></tr>`).join("");
+
+el("checklist").innerHTML = SYSTEM.checklist.map(c => `<li>${esc(c)}</li>`).join("");
+
+document.title = SYSTEM.name + " — Architecture";
+document.querySelector("h1").textContent = SYSTEM.name;
+document.querySelector(".sub").textContent =
+  "Architecture and scaling plan. Generated by stackfit. Prices checked " +
+  SYSTEM.checked + ".";
+el("foot").textContent =
+  "Costs are estimates checked " + SYSTEM.checked +
+  " and drift. Fields marked [assumed] were inferred, not confirmed — verify them before committing spend.";
+
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(b =>
+      b.setAttribute("aria-selected", String(b === btn)));
+    renderTier(btn.dataset.tier);
+  });
+});
+
+renderTier("mvp");
+</script>
+</body>
+</html>

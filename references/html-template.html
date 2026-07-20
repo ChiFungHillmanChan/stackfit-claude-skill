@@ -463,8 +463,14 @@ function renderTier(key) {
 
   const svg = el("svg");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.setAttribute("width", W);
-  svg.setAttribute("height", H);
+  // Scale down to fit the container rather than forcing a horizontal scroll —
+  // SVG loses nothing when shrunk, and a diagram you must scroll to read is
+  // not a clear diagram. min-width in CSS still allows scrolling on phones.
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
+  svg.style.width = "100%";
+  svg.style.maxWidth = W + "px";
+  svg.style.height = "auto";
   svg.innerHTML = s;
 
   svg.querySelectorAll(".node").forEach(g => {

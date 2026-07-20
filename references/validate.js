@@ -103,6 +103,18 @@ for (const [key, t] of Object.entries(TIERS || {})) {
     if (!byId[b]) fail.push(`${key}: edge to unknown node "${b}"`);
   }
 
+  // Router limitation: the elbow router does not path around obstacles, so a
+  // same-row edge that skips a column draws straight through whatever sits
+  // between. Reroute via an adjacent column or move the nodes.
+  for (const [a, b] of t.edges || []) {
+    const s = byId[a], d = byId[b];
+    if (!s || !d || s.row !== d.row) continue;
+    const [lo, hi] = s.col < d.col ? [s.col, d.col] : [d.col, s.col];
+    const blocker = t.nodes.find(n => n.row === s.row && n.col > lo && n.col < hi);
+    if (blocker)
+      fail.push(`${key}: edge ${a}->${b} draws through "${blocker.id}" — same-row edges cannot skip an occupied column`);
+  }
+
   // Orphans
   const touched = new Set((t.edges || []).flatMap(([a, b]) => [a, b]));
   for (const n of t.nodes) {

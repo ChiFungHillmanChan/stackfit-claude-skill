@@ -114,6 +114,32 @@ Catches what a visual check misses: cost tables that do not sum to their headlin
 
 The skill runs this automatically before reporting done.
 
+## Worked Example
+
+`examples/` holds a full run for a refrigeration fleet telemetry system — 12,000 sensors, food-safety compliance, $1,200/mo ceiling. Open the HTML locally to click through it.
+
+It is worth reading for what the research phase caught. AWS IoT Core meters at $1 per million messages, so 12,000 units reporting every 30 seconds generates 1.04 billion messages a month: **$1,037/mo in messaging alone, 86% of the entire budget, before any database exists.** Batching 10 readings per publish cuts that to $104.
+
+A default design never surfaces that number, because a default design never computes it.
+
+The same run rejected the reflex stack for the ingest plane, with reasons:
+
+```
+Reflex stack: Vercel + Supabase
+Fits:      Dashboard for 600 staff is trivial. Postgres suits the
+           relational half — sites, units, alert rules.
+Breaks:    400 writes/s sustained, 12.6B rows/yr. No columnar
+           compression means 820GB/yr and punitive storage cost.
+           Devices speak MQTT over cellular; there is no MQTT ingress.
+           Serverless has nowhere to hold the disk buffer that the
+           no-data-loss requirement demands.
+Verdict:   Rejected for ingest. The read plane is one container
+           alongside the evaluator, so adding Vercel would introduce
+           a second deploy target for no gain.
+```
+
+It also declined to add Redis at MVP — a 12,000-row current-state table serves dashboard reads fine, so a cache would buy an invalidation bug surface for no measured gain. Redis enters at Growth, when per-reading updates start contending with the ingest path.
+
 ## Repo Layout
 
 ```
@@ -123,6 +149,9 @@ references/
   html-template.html             interactive diagram scaffold
   spec-template.md               build spec structure
   validate.js                    output validator
+examples/
+  refrigeration-telemetry-design.html    worked example, interactive
+  refrigeration-telemetry-design.md      worked example, build spec
 ```
 
 ## Customizing
