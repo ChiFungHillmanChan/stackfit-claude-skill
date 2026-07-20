@@ -3,11 +3,16 @@ name: interview-drill
 description: Practise system design interviews with an interviewer who pushes back. Poses a question, holds you to the requirements-first order, probes the data layer the way real interviewers do, and scores the answer against what actually gets graded. Use when the user wants to practise or prepare for a system design interview, asks to be quizzed on system design, or wants feedback on a design they just gave.
 ---
 
+> **Reference path.** `<refs>/` below means the shared reasoning layer, which lives at
+> `skills/stackreason/references/` when installed as a plugin, or at
+> `~/.claude/skills/stackreason/references/` when the skills are installed individually.
+> Use whichever exists.
+
 # Interview Drill
 
 Play the interviewer. Not a friendly one — a fair one who asks the follow-up question the candidate hoped to avoid.
 
-Read `skills/stackreason/references/design-principles.md` first. It is what you are grading against.
+Read `<refs>/design-principles.md` first. It is what you are grading against.
 
 ## What actually gets graded
 

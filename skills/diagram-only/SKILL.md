@@ -3,6 +3,11 @@ name: diagram-only
 description: Turn an architecture you have already decided into an interactive diagram, with no interview. Use when the user describes a system they have already designed and wants the artifact — for a slide deck, a design doc, an RFC, or onboarding material. Triggers on "diagram this", "draw this architecture", "make a diagram of our stack", "I need this for a deck".
 ---
 
+> **Reference path.** `<refs>/` below means the shared reasoning layer, which lives at
+> `skills/stackreason/references/` when installed as a plugin, or at
+> `~/.claude/skills/stackreason/references/` when the skills are installed individually.
+> Use whichever exists.
+
 # Diagram Only
 
 The design is already decided. Skip the interview and build the artifact.
@@ -59,7 +64,7 @@ If they want costs but do not know them, offer to estimate with the `capacity-es
 
 ## Step 3 — Build
 
-Use `skills/stackreason/references/html-template.html`. Fill the `SYSTEM` and `TIERS` data block; do not hand-write SVG.
+Use `<refs>/html-template.html`. Fill the `SYSTEM` and `TIERS` data block; do not hand-write SVG.
 
 Layout rules that keep the renderer honest:
 
@@ -73,7 +78,7 @@ Tiers are optional here. A single-tier diagram is legitimate when the user just 
 ## Step 4 — Validate and deliver
 
 ```bash
-node skills/stackreason/references/validate.js <output>.html
+node <refs>/validate.js <output>.html
 ```
 
 The validator will reject nodes missing a `why`. In this skill that field holds **the user's stated reason**, or a plain description of the component's role if they did not give one — not a justification you invented on their behalf.

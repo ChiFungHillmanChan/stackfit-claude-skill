@@ -3,6 +3,11 @@ name: capacity-estimate
 description: Fast back-of-envelope capacity and cost arithmetic with the working shown. Answers "what does 100k users cost", "can one Postgres handle this", "how much storage will a year of this need", "is serverless cheaper than a container here" — without running a full design. Use when the user wants a number rather than an architecture.
 ---
 
+> **Reference path.** `<refs>/` below means the shared reasoning layer, which lives at
+> `skills/stackreason/references/` when installed as a plugin, or at
+> `~/.claude/skills/stackreason/references/` when the skills are installed individually.
+> Use whichever exists.
+
 # Capacity Estimate
 
 Not every question needs a design. Sometimes you want to know whether the answer is $50 or $5,000 before deciding whether the question is worth more thought.
@@ -68,7 +73,7 @@ Then adjust for what actually happens to it:
 
 ### Step 3 — Check it against known ceilings
 
-Consult `skills/stackreason/references/service-catalog.md`. The ceilings age far more slowly than the prices.
+Consult `<refs>/service-catalog.md`. The ceilings age far more slowly than the prices.
 
 ```
 5.8 writes/s average, 17/s peak

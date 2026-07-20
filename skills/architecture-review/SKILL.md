@@ -3,11 +3,16 @@ name: architecture-review
 description: Audit an architecture that already exists. Infers the current stack from the repo, then checks every component against the requirement it should be serving — finding what is over-provisioned, what is about to break, and what nobody can justify. Use when the user asks to review or audit an existing architecture, asks "is my stack right", "am I over-engineering", "what will break first", "why is my bill so high", "should we still be on X", or is inheriting a system they did not design.
 ---
 
+> **Reference path.** `<refs>/` below means the shared reasoning layer, which lives at
+> `skills/stackreason/references/` when installed as a plugin, or at
+> `~/.claude/skills/stackreason/references/` when the skills are installed individually.
+> Use whichever exists.
+
 # Architecture Review
 
 Design skills answer "what should we build". This one answers "was what we built right, and what breaks next".
 
-Read `skills/stackreason/references/design-principles.md` first. It is the reasoning layer this review applies.
+Read `<refs>/design-principles.md` first. It is the reasoning layer this review applies.
 
 ## What This Is Not
 
@@ -110,7 +115,7 @@ End with what is **correct and should not change**. A review that only lists pro
 
 ## Optional output
 
-If the user wants an artifact, build the current architecture as tier one and the recommended architecture as tier two using `skills/stackreason/references/html-template.html`, then validate with `references/validate.js`. Seeing the two side by side with costs attached is more persuasive than a list.
+If the user wants an artifact, build the current architecture as tier one and the recommended architecture as tier two using `<refs>/html-template.html`, then validate with `references/validate.js`. Seeing the two side by side with costs attached is more persuasive than a list.
 
 ## Common Failure Modes
 
