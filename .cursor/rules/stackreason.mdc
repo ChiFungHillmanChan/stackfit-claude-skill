@@ -1,0 +1,33 @@
+---
+description: System design, architecture, stack selection, database choice, capacity and cost estimation, and system design interview practice
+globs:
+alwaysApply: false
+---
+
+# stackreason
+
+When the user asks about system design, architecture, what stack to use, what database to use, monolith versus microservices, how something scales, what infrastructure costs, or wants system design interview practice — open the matching skill file and **follow it exactly, in order. Do not summarise it; execute it.**
+
+Paths are relative to this repository. If stackreason is cloned elsewhere, use that path.
+
+| Ask | Skill |
+|---|---|
+| Designing something new | `skills/stackreason/SKILL.md` |
+| Auditing a system that exists | `skills/architecture-review/SKILL.md` |
+| Cost or capacity numbers only | `skills/capacity-estimate/SKILL.md` |
+| Interview practice | `skills/interview-drill/SKILL.md` |
+| Diagram of a settled design | `skills/diagram-only/SKILL.md` |
+
+Shared reasoning layer in `skills/stackreason/references/`. Read `design-principles.md` before designing anything.
+
+## The rule that matters most
+
+Every component must cite the specific requirement it serves. "Good practice" is not a citation, and `validate.js` rejects that phrase.
+
+This guards both directions: adding a queue, cache, CDN and read replica to a tool serving 200 people is the same failure as forcing serverless onto a write-heavy pipeline. Concluding "the popular managed stack is correct here, and here is what breaks first" is a complete success.
+
+## Validating generated output
+
+```bash
+node skills/stackreason/references/validate.js <design>.html
+```

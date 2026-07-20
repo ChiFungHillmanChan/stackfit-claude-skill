@@ -1,5 +1,24 @@
 # Using stackreason with other agents
 
+## Platform status
+
+Honest about what has actually been run versus what merely looks right.
+
+| Platform | Status | Evidence |
+|---|---|---|
+| **Claude Code** | **Verified** | Skill loads and runs; used to produce every example in `examples/` |
+| **Codex** | **Verified end to end** | `codex plugin marketplace add .` then `codex plugin add stackreason@stackreason`. Reports installed and enabled, all five skills present in the installed cache, validator runs from that copy |
+| **Gemini CLI** | **Verified end to end** | `gemini extensions install <repo> --consent`. `gemini extensions list` shows all five skills with descriptions and `GEMINI.md` as the context file |
+| **Cursor** | **Partly unverified** | `.cursor/rules/stackreason.mdc` uses Cursor's documented rules format and should work, but was not loaded in a running Cursor session. `.cursor-plugin/plugin.json` mirrors what superpowers ships, but the Cursor CLI exposes no plugin or skill command, so that path could not be exercised at all |
+| **OpenCode** | **Untested** | `.opencode/plugins/stackreason.js` parses as a valid ES module and mirrors a working plugin's structure. OpenCode was not installed, so it has never been loaded |
+| **Kimi, Pi, Copilot CLI** | **No manifest** | Not attempted |
+
+Testing caught one error that would have hit every Codex user on their first command: the marketplace manifest used `"authentication": "NONE"`, which the schema rejects — only `ON_INSTALL` and `ON_USE` are valid. Nothing but running the command would have found that.
+
+If you run this on Cursor or OpenCode, an issue reporting either outcome is genuinely useful.
+
+## What a skill actually is
+
 Nothing here is Claude-specific. The skills are markdown with YAML frontmatter, the validator is dependency-free Node, and the output is plain HTML. Any agent that can read a file and run a command can use this.
 
 ## What a skill actually is
@@ -15,7 +34,7 @@ description: ...trigger phrases...
 
 That is the whole format. The frontmatter `description` decides when the agent loads it; the body is the procedure. Different harnesses discover these differently, but the file is the same.
 
-## Claude Code
+## Claude Code — verified
 
 **As a plugin** — all five skills:
 
@@ -31,7 +50,46 @@ git clone https://github.com/ChiFungHillmanChan/stackreason /tmp/sr
 cp -r /tmp/sr/skills/stackreason ~/.claude/skills/
 ```
 
-## Codex, Cursor, Windsurf, and other AGENTS.md harnesses
+## Codex — verified
+
+Codex has a real plugin marketplace:
+
+```bash
+codex plugin marketplace add ChiFungHillmanChan/stackreason
+codex plugin add stackreason@stackreason
+```
+
+Confirm with `codex plugin list` — it should read `installed, enabled`.
+
+For a local checkout, `codex plugin marketplace add .` from the repo root works too.
+
+## Gemini CLI — verified
+
+```bash
+gemini extensions install https://github.com/ChiFungHillmanChan/stackreason
+```
+
+`gemini extensions list` should show all five skills and `GEMINI.md` as the context file.
+
+## Cursor
+
+Cursor's CLI has no plugin or skill command; it uses rules. Copy the rule into your project:
+
+```bash
+mkdir -p .cursor/rules
+curl -o .cursor/rules/stackreason.mdc \
+  https://raw.githubusercontent.com/ChiFungHillmanChan/stackreason/main/.cursor/rules/stackreason.mdc
+```
+
+Then edit the paths in it to point at wherever you cloned the repo.
+
+`.cursor-plugin/plugin.json` also exists, mirroring what other skill plugins ship, but no CLI command exercises it — treat it as untested.
+
+## OpenCode
+
+See [`.opencode/INSTALL.md`](../.opencode/INSTALL.md). Untested; report either outcome.
+
+## Windsurf and other AGENTS.md harnesses
 
 These read `AGENTS.md` from the project root. Clone the repo somewhere permanent and point at it:
 

@@ -10,7 +10,7 @@
 
 Five system-design skills for AI coding agents. They interview you about what you are actually building, make every component justify itself against a number, and emit an interactive architecture diagram plus a spec another agent can build from.
 
-Works with Claude Code, Codex, Cursor, Gemini CLI, and anything else that reads markdown instructions.
+Verified on **Claude Code**, **Codex** and **Gemini CLI**. Manifests also ship for Cursor and OpenCode — see the [platform status table](docs/porting.md) for exactly what has been run and what has not.
 
 ![Clicking a component shows why it was chosen, what it costs, and what breaks first](assets/node-detail.jpg)
 
@@ -50,17 +50,22 @@ git clone https://github.com/ChiFungHillmanChan/stackreason /tmp/sr
 cp -r /tmp/sr/skills/stackreason ~/.claude/skills/
 ```
 
-### Codex, Cursor, and other AGENTS.md agents
+### Codex
 
-Clone somewhere permanent, then add to your `AGENTS.md`:
-
-```markdown
-When the user asks about system design, architecture, what stack to use,
-or what database to use, read ~/tools/stackreason/skills/stackreason/SKILL.md
-and follow it exactly.
+```bash
+codex plugin marketplace add ChiFungHillmanChan/stackreason
+codex plugin add stackreason@stackreason
 ```
 
-Full instructions, including Gemini CLI and no-harness usage, in [docs/porting.md](docs/porting.md).
+### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/ChiFungHillmanChan/stackreason
+```
+
+### Cursor, OpenCode, and anything reading AGENTS.md
+
+See [docs/porting.md](docs/porting.md), which also states which platforms have actually been tested and which have not.
 
 ## What a run looks like
 
